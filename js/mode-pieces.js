@@ -676,12 +676,14 @@
       scheduleAccompaniment(r, sel, tStart, spt);
       if (mic && !accWarned) { accWarned = true; TP.toast('Piano + mic: use headphones, or the mic will hear the piano.', 6000); }
     }
-    for (const n of sel.notes) {
+    sel.notes.forEach((n, k) => {
       const t = tStart + (n.start - sel.startT) * spt;
+      // A repeat of the note before has to be played again, not just held over.
+      const again = k > 0 && sel.notes[k - 1].midi === n.midi;
       const dur = n.dur * spt;
       if (kind === 'listen' || S.pieceGuide) r.play(n.midi, Math.max(0.12, dur * 0.95), t, false);
       r.at(t, () => view.setCurrent(n.i, !scrolling()));
-      if (kind !== 'play' || !gradable(n.midi)) continue;
+      if (kind !== 'play' || !gradable(n.midi)) return;
       const grace = TP.graceFor(dur);
       // Your note sounds as you play it (valves) — unless the guide is already playing it.
       if (!mic && !S.pieceGuide) TP.soundAsYouPlay(r, t, n.midi, dur, grace);
@@ -689,7 +691,7 @@
       r.at(t + (mic ? win : grace), () => {
         let grade, played = null;
         if (mic) {
-          const first = TP.mic.heard(n.midi, t - 0.15, t + win);
+          const first = TP.mic.heard(n.midi, t - 0.15, t + win, 2, again);
           grade = first === null ? 'miss' : first <= t + 0.12 ? 'perfect' : 'late';
         } else {
           const j = TP.judgeBeat(t, n.midi, grace);
@@ -718,7 +720,7 @@
           });
         }
       });
-    }
+    });
     const end = tStart + (sel.endT - sel.startT) * spt;
     r.at(end + 0.5, () => finish(kind));
   }

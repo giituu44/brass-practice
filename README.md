@@ -64,7 +64,7 @@ A practice app for tuba and other brass: fingerings, scales, rhythm, real pieces
   - `mode-*.js`: one file per tab
 - `sounds/`: instrument samples as base64 MP3 in `.js` files, so they load even when the page is opened from your disk
 - `vendor/pdfjs/`: pdf.js 3.11, used to show and read PDFs (loaded only when you open one)
-- `tools/`: the Python and ffmpeg scripts that built the sample files
+- `tools/`: the Python and ffmpeg scripts that built the sample files, and `mic-lab.html`: drop in a recording (e.g. a take saved with ⬇ Save) to see the pitch, note starts and tuning the app's mic detection reads from it
 
 ## Credits
 

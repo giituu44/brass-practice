@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mic Lab</title>
+<style>
+  :root { --bg: #fbfaf7; --fg: #1d1c1a; --sub: #6b6862; --line: #e3e0d9; --pitch: #2f6fd6; --onset: #d64a2f; --env: #b9b3a6; --cursor: #1d1c1a; --card: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171716; --fg: #ecebe8; --sub: #9a968e; --line: #34332f; --pitch: #6fa3ff; --onset: #ff7a5c; --env: #57534b; --cursor: #ecebe8; --card: #201f1d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--sub); margin: 0 0 16px; }
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; background: var(--card); cursor: pointer; }
+  .drop.over { border-color: var(--pitch); }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0 8px; }
+  button, select { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 6px 0 12px; }
+  .stats b { font-variant-numeric: tabular-nums; }
+  .warn { color: var(--onset); }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  canvas { display: block; }
+  .key { color: var(--sub); font-size: 13px; margin: 6px 0 18px; }
+  .key i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin: 0 4px 0 10px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); }
+  th { color: var(--sub); font-weight: 500; }
+  tr.jump td { color: var(--onset); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mic Lab</h1>
+  <p class="sub">Shows what Brass Practice hears in a recording: the pitch it reads, where it thinks each note starts, and how in tune each note is. Use takes saved with ⬇ Save, or any recording of your instrument.</p>
+
+  <label class="drop" id="drop">Drop a recording here, or click to choose one
+    <input type="file" id="file" accept="audio/*,.webm,.ogg" hidden>
+  </label>
+
+  <div id="out" hidden>
+    <div class="bar">
+      <b id="name"></b>
+      <button id="play">▶ Play</button>
+      <label>A = <select id="a4"><option>438</option><option>440</option><option>441</option><option>442</option><option>443</option><option>444</option><option>446</option></select> Hz</label>
+      <label>Zoom <select id="zoom"><option value="80">far</option><option value="160" selected>normal</option><option value="320">close</option></select></label>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="scroll" id="scroll"><canvas id="cv"></canvas></div>
+    <div class="key"><i style="background:var(--pitch)"></i>pitch heard <i style="background:var(--onset)"></i>note start <i style="background:var(--env)"></i>loudness · click the chart to play from there</div>
+    <table>
+      <thead><tr><th>#</th><th>Starts</th><th>Length</th><th>Note</th><th>Tuning</th><th></th></tr></thead>
+      <tbody id="notes"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  // Just enough of the app for js/pitch.js to run on its own.
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  window.TP = { S: { a4: 440, micAnyOctave: false }, inst: () => ({ transpose: 0 }), outputUntil: -1, audio: () => ctx, heardTime: () => ctx.currentTime };
+</script>
+<script src="../js/pitch.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const noteName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  let audio = null, readings = [], notes = [], playing = null;
+
+  // ---------- loading ----------
+  async function load(file) {
+    $('name').textContent = file.name;
+    try {
+      const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+      // Mix to mono, the way a single mic hears it.
+      const mono = new Float32Array(buf.length);
+      for (let c = 0; c < buf.numberOfChannels; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels;
+      }
+      audio = { buf, mono };
+      $('out').hidden = false;
+      run();
+    } catch (e) {
+      alert('Couldn’t read that file as audio.');
+    }
+  }
+  $('file').addEventListener('change', e => e.target.files[0] && load(e.target.files[0]));
+  const drop = $('drop');
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+
+  // ---------- reading the recording ----------
+  function run() {
+    TP.S.a4 = Number($('a4').value);
+    readings = TP.mic.analyse(audio.mono, audio.buf.sampleRate);
+    // A note = readings of one pitch from one start.
+    notes = [];
+    for (const r of readings) {
+      const last = notes[notes.length - 1];
+      if (r.midi === null) continue;
+      if (last && last.midi === r.midi && last.since === r.since) { last.end = r.t; last.cents.push(r.cents); continue; }
+      notes.push({ midi: r.midi, since: r.since, start: r.t, end: r.t, cents: [r.cents] });
+    }
+    // Blips shorter than 3 readings are noise, not notes.
+    notes = notes.filter(n => n.cents.length >= 3);
+    notes.forEach((n, i) => {
+      const c = n.cents.slice().sort((a, b) => a - b);
+      n.median = c[c.length >> 1];
+      const prev = notes[i - 1];
+      n.jump = prev && Math.abs(n.midi - prev.midi) === 12 && n.start - prev.end < 0.1;
+    });
+    stats();
+    draw();
+    table();
+  }
+  $('a4').value = '440';
+  $('a4').addEventListener('change', run);
+  $('zoom').addEventListener('change', draw);
+
+  function stats() {
+    const voiced = readings.filter(r => r.midi !== null).length;
+    const jumps = notes.filter(n => n.jump).length;
+    const tuned = notes.filter(n => n.cents.length >= 8);
+    const avgOff = tuned.length ? Math.round(tuned.reduce((t, n) => t + Math.abs(n.median), 0) / tuned.length) : null;
+    $('stats').innerHTML = [
+      `Length <b>${audio.buf.duration.toFixed(1)} s</b>`,
+      `Notes found <b>${notes.length}</b>`,
+      `Pitch heard <b>${Math.round(voiced / Math.max(1, readings.length) * 100)}%</b> of the time`,
+      avgOff === null ? '' : `Average tuning <b>${avgOff}¢</b> off`,
+      jumps ? `<span class="warn">Octave jumps <b>${jumps}</b> — likely misreadings</span>` : 'No octave jumps',
+    ].filter(Boolean).join(' · ');
+  }
+
+  // ---------- the chart: pitch over time, note starts, loudness ----------
+  const H = 320, PAD = 36;
+  function draw() {
+    const pps = Number($('zoom').value), dur = audio.buf.duration;
+    const cv = $('cv'), dpr = window.devicePixelRatio || 1;
+    const W = Math.max($('scroll').clientWidth, Math.ceil(dur * pps) + PAD + 10);
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const heard = readings.filter(r => r.midi !== null);
+    if (!heard.length) { g.fillStyle = css('--sub'); g.fillText('No pitch heard in this recording.', PAD, 30); return; }
+    const lo = Math.min(...heard.map(r => r.midi)) - 2, hi = Math.max(...heard.map(r => r.midi)) + 2;
+    const x = t => PAD + t * pps, y = m => H - 20 - (m - lo) / (hi - lo) * (H - 40);
+    // Note grid: a line per semitone, named on the naturals.
+    g.font = '11px system-ui'; g.textBaseline = 'middle';
+    for (let m = Math.ceil(lo); m <= hi; m++) {
+      g.strokeStyle = css('--line'); g.lineWidth = NAMES[m % 12].length === 1 ? 1 : 0.4;
+      g.beginPath(); g.moveTo(PAD, y(m)); g.lineTo(W, y(m)); g.stroke();
+      if (NAMES[m % 12].length === 1) { g.fillStyle = css('--sub'); g.fillText(noteName(m), 4, y(m)); }
+    }
+    for (let s = 0; s <= dur; s++) { g.fillStyle = css('--sub'); g.fillText(s + 's', x(s) + 2, H - 8); }
+    // Loudness along the bottom.
+    const maxRms = Math.max(...readings.map(r => r.rms)) || 1;
+    g.strokeStyle = css('--env'); g.lineWidth = 1.2; g.beginPath();
+    readings.forEach((r, i) => { const yy = H - 20 - r.rms / maxRms * 60; i ? g.lineTo(x(r.t), yy) : g.moveTo(x(r.t), yy); });
+    g.stroke();
+    // Note starts.
+    g.strokeStyle = css('--onset'); g.lineWidth = 1.5;
+    for (const r of readings) if (r.onset !== undefined) { g.beginPath(); g.moveTo(x(r.onset), 6); g.lineTo(x(r.onset), H - 20); g.stroke(); }
+    // Pitch: each reading at its exact pitch (note + cents).
+    g.fillStyle = css('--pitch');
+    for (const r of heard) { g.beginPath(); g.arc(x(r.t), y(r.midi + r.cents / 100), 2, 0, 7); g.fill(); }
+    // Playback cursor.
+    if (playing) {
+      const t = ctx.currentTime - playing.at + playing.from;
+      g.strokeStyle = css('--cursor'); g.lineWidth = 1; g.beginPath(); g.moveTo(x(t), 0); g.lineTo(x(t), H); g.stroke();
+    }
+  }
+
+  function table() {
+    $('notes').innerHTML = notes.map((n, i) => `<tr class="${n.jump ? 'jump' : ''}"><td>${i + 1}</td><td>${n.start.toFixed(2)} s</td>`
+      + `<td>${(n.end - n.start + 0.04).toFixed(2)} s</td><td>${noteName(n.midi)}</td>`
+      + `<td>${n.median > 0 ? '+' : ''}${n.median}¢</td><td>${n.jump ? 'octave jump' : ''}</td></tr>`).join('');
+  }
+
+  // ---------- playback ----------
+  function play(from = 0) {
+    stopPlay();
+    const src = ctx.createBufferSource();
+    src.buffer = audio.buf;
+    src.connect(ctx.destination);
+    ctx.resume();
+    src.start(0, from);
+    playing = { src, at: ctx.currentTime, from };
+    src.onended = () => { if (playing && playing.src === src) stopPlay(); };
+    $('play').textContent = '■ Stop';
+    const tick = () => { if (!playing || playing.src !== src) return; draw(); requestAnimationFrame(tick); };
+    tick();
+  }
+  function stopPlay() {
+    if (playing) { try { playing.src.stop(); } catch (e) { /* done */ } }
+    playing = null;
+    $('play').textContent = '▶ Play';
+    if (audio) draw();
+  }
+  $('play').addEventListener('click', () => (playing ? stopPlay() : play()));
+  $('cv').addEventListener('click', e => {
+    const t = (e.offsetX - PAD) / Number($('zoom').value);
+    if (t >= 0 && t < audio.buf.duration) play(t);
+  });
+})();
+</script>
+</body>
+</html>

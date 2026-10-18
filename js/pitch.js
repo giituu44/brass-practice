@@ -64,12 +64,84 @@ TP.mic = (() => {
 
   const toMidi = f => 69 + 12 * Math.log2(f / (TP.S.a4 || 440));   // relative to your chosen A
 
+  // ---------- note starts ----------
+  // A re-tongued note on the same pitch doesn't change the pitch reading, so note
+  // starts also come from the loudness: a clear dip, then a quick rise.
+  const ENV_STEP = 0.005;   // s between loudness points
+  const DIP = 0.55;         // the dip must fall to this fraction of the level before it...
+  const RISE = 1.8;         // ...and the level must climb this many times above the dip
+  const MIN_GAP = 0.1;      // s: no two note starts closer than this (low attacks can bump twice)
+
+  // Turns blocks of samples into readings: { t, midi, cents, freq, rms, held, since, onset }.
+  // `t` is when the middle of the block was played; `since` when this note started.
+  function makeTracker(sr) {
+    const env = [];           // { t, v } loudness, last ~0.3 s
+    let streak = { midi: null, since: 0 }, lastOnset = -Infinity, freq = 0;
+
+    // Loudness along the new samples (the last `fresh` of buf, whose final sample
+    // played at tEnd), each over a whole number of pitch periods so it doesn't ripple.
+    function loudness(buf, fresh, tEnd) {
+      const period = freq ? sr / freq : sr * 0.02;
+      const win = Math.round(period * Math.max(1, Math.ceil(sr * 0.01 / period)));
+      const step = Math.round(sr * ENV_STEP);
+      let onset = null;
+      for (let end = Math.max(win, buf.length - fresh); end <= buf.length; end += step) {
+        let s = 0;
+        for (let i = end - win; i < end; i++) s += buf[i] * buf[i];
+        const pt = { t: tEnd - (buf.length - end + win / 2) / sr, v: Math.sqrt(s / win) };
+        if (env.length && pt.t <= env[env.length - 1].t) continue;
+        env.push(pt);
+        // The lowest point in the last 40 ms, and the loudest in the 120 ms before it.
+        let lo = -1;
+        for (let j = env.length - 2; j >= 0 && pt.t - env[j].t <= 0.04; j--) if (lo < 0 || env[j].v < env[lo].v) lo = j;
+        if (lo < 0) continue;
+        let before = 0;
+        for (let j = lo - 1; j >= 0 && env[lo].t - env[j].t <= 0.12; j--) before = Math.max(before, env[j].v);
+        if (pt.v >= RISE * env[lo].v && env[lo].v <= DIP * before && pt.v >= MIN_RMS && env[lo].t - lastOnset >= MIN_GAP) {
+          lastOnset = onset = env[lo].t;
+        }
+      }
+      while (env.length && env[0].t < tEnd - 0.3) env.shift();
+      return onset;
+    }
+
+    // buf: the latest FFT samples; fresh: how many are new since the last call;
+    // t: when the middle of buf was played; live: skip what the app itself is playing.
+    return (buf, fresh, t, live) => {
+      const r = detect(buf, sr);
+      const onset = loudness(buf, Math.min(fresh, buf.length), t + buf.length / sr / 2);
+      let reading = { t, midi: null, cents: 0, freq: 0, rms: r.rms };
+      if (r.freq && r.clarity >= MIN_CLARITY && (!live || t > TP.outputUntil + 0.08)) {
+        const m = toMidi(r.freq);
+        const concert = Math.round(m);
+        // Everything else works in written pitch (a B♭ trumpet's C sounds B♭).
+        const midi = concert + TP.inst().transpose;
+        reading = { t, midi, concert, cents: Math.round((m - concert) * 100), freq: r.freq, rms: r.rms };
+      }
+      freq = reading.freq;
+      if (reading.midi !== streak.midi) streak = { midi: reading.midi, since: t };
+      else if (onset !== null && reading.midi !== null && onset > streak.since + MIN_GAP) streak = { midi: reading.midi, since: onset };
+      reading.since = streak.since;
+      reading.held = Math.max(0, t - streak.since);   // how long this note has been sounding
+      if (onset !== null) reading.onset = onset;
+      return reading;
+    };
+  }
+
+  // A whole recording at once, read the same way as the live mic (for testing).
+  function analyse(samples, sr) {
+    const step = makeTracker(sr), hop = Math.round(sr * EVERY_MS / 1000), out = [];
+    for (let end = FFT; end <= samples.length; end += hop) {
+      out.push(step(samples.subarray(end - FFT, end), end === FFT ? FFT : hop, (end - FFT / 2) / sr, false));
+    }
+    return out;
+  }
+
   // ---------- live input ----------
   let analyser = null, source = null, stream = null, timer = 0;
-  const log = [];          // { t (heard-time), midi (rounded) or null, cents, freq }
+  const log = [];          // readings, oldest first
   const listeners = [];
   let current = null;      // latest reading
-  let streak = { midi: null, since: 0, frames: 0 };
 
   function attach(node) {
     detach();
@@ -80,22 +152,14 @@ TP.mic = (() => {
     source = node;
     const buf = new Float32Array(FFT);
     const half = FFT / ctx.sampleRate / 2;
+    const step = makeTracker(ctx.sampleRate);
+    let last = 0;
     timer = setInterval(() => {
       analyser.getFloatTimeDomainData(buf);
-      const r = detect(buf, ctx.sampleRate);
+      const now = ctx.currentTime, fresh = last ? Math.round((now - last) * ctx.sampleRate) : FFT;
+      last = now;
       // When the middle of this window was played, on the same clock as clicks.
-      const t = TP.heardTime() - half - 0.02;
-      let reading = { t, midi: null, cents: 0, freq: 0, rms: r.rms };
-      if (r.freq && r.clarity >= MIN_CLARITY && t > TP.outputUntil + 0.08) {
-        const m = toMidi(r.freq);
-        const concert = Math.round(m);
-        // Everything else works in written pitch (a B♭ trumpet's C sounds B♭).
-        const midi = concert + TP.inst().transpose;
-        reading = { t, midi, concert, cents: Math.round((m - concert) * 100), freq: r.freq, rms: r.rms };
-      }
-      if (reading.midi !== streak.midi) streak = { midi: reading.midi, since: t, frames: 0 };
-      streak.frames++;
-      reading.held = t - streak.since;   // how long this note has been sounding
+      const reading = step(buf, fresh, TP.heardTime() - half - 0.02, true);
       current = reading;
       log.push(reading);
       if (log.length > 600) log.splice(0, 300);
@@ -131,12 +195,13 @@ TP.mic = (() => {
   }
 
   // Did the target note sound (for at least `minFrames` readings) between t0 and t1?
-  // Returns the time it first sounded, or null.
-  function heard(midi, t0, t1, minFrames = 2) {
+  // Returns the time it first sounded, or null. `fresh`: the note must also have
+  // started after t0 (so a held note on the same pitch doesn't count for the next one).
+  function heard(midi, t0, t1, minFrames = 2, fresh = false) {
     let run = 0, first = null;
     for (const r of log) {
       if (r.t < t0 || r.t > t1) continue;
-      if (matches(r.midi, midi)) {
+      if (matches(r.midi, midi) && (!fresh || r.since >= t0)) {
         if (!run) first = r.t;
         if (++run >= minFrames) return first;
       } else {
@@ -154,7 +219,7 @@ TP.mic = (() => {
   const matches = (got, want) => got !== null && (got === want || (TP.S.micAnyOctave && (got - want) % 12 === 0));
 
   return {
-    detect, start, stop, attach, heard, matches, centsOn,
+    detect, analyse, start, stop, attach, heard, matches, centsOn,
     get source() { return source; },
     on: fn => listeners.push(fn),
     get active() { return !!timer; },
