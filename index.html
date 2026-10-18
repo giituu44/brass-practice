@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brass Practice</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1><span class="logo">brass<i>·</i>practice</span> <button id="instBtn" class="inst-btn" title="Change instrument"></button></h1>
+    <nav class="tabs">
+      <button class="tab" data-tab="today"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5l2.2 2.2 4.6-4.6"/></svg><span>Today</span></button>
+      <button class="tab" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
+      <button class="tab" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
+      <button class="tab" data-tab="pieces"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Pieces</span></button>
+      <button class="tab" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
+      <button class="tab" data-tab="tuner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/><path d="M4 20h16"/></svg><span>Tuner</span></button>
+      <button class="tab" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
+    </nav>
+    <span id="progress" class="progress" title="Days in a row you've practised · minutes today"></span>
+    <div class="input-seg" role="group" aria-label="Answer with">
+      <button id="keysSeg" title="Answer with the valve keys (J K L ;) or the pistons on screen">⌨ <span class="seg-label">Keys</span></button>
+      <button id="micBtn" title="Answer by playing your instrument into the microphone" aria-pressed="false">🎤 <span id="micLive">Mic</span></button>
+    </div>
+    <details class="pop metro-pop" id="metro">
+      <summary class="icon-btn metro-btn" title="Metronome"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span id="metroMini"></span></summary>
+      <div class="pop-body metro-body">
+        <div class="metro-head"><b>Metronome</b><span class="beat-dots" id="metroDots"></span></div>
+        <div class="metro-bpm">
+          <button id="metroSlower" aria-label="Slower">−</button>
+          <span><output id="metroBpm">80</output><small>bpm</small></span>
+          <button id="metroFaster" aria-label="Faster">+</button>
+        </div>
+        <input type="range" id="metroRange" min="30" max="260" step="1" aria-label="Tempo">
+        <div class="pop-row">
+          <label class="pill"><span>Beats</span><select id="metroBeats"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select></label>
+          <label class="pill"><span>Clicks</span><select id="metroSub"><option value="1">beats</option><option value="2">eighths</option><option value="3">triplets</option><option value="4">16ths</option></select></label>
+        </div>
+        <div class="pop-row">
+          <button id="metroTap" class="pill">Tap</button>
+          <button id="metroGo" class="pill primary">▶ Start</button>
+        </div>
+      </div>
+    </details>
+    <button id="helpBtn" class="icon-btn" aria-label="Help and shortcuts" title="Help (?)">?</button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
+  </header>
+
+  <main>
+    <!-- Today -->
+    <div class="panel" id="panel-today" hidden>
+      <section class="card">
+        <div class="today-head">
+          <div><h2 id="tdDate"></h2><p class="sub tight" id="tdSub"></p></div>
+          <div class="ring" id="tdRing"></div>
+        </div>
+        <ol id="tdSteps" class="steps"></ol>
+        <p class="hint tight"><kbd>Space</kbd> starts the next step.</p>
+      </section>
+      <div class="today-row">
+      <section class="card">
+        <h2>This week</h2>
+        <div id="tdWeek" class="week"></div>
+        <p class="sub tight center" id="tdWeekSum"></p>
+      </section>
+      <section class="card">
+        <h2>Progress on <span id="tdInst"></span></h2>
+        <div id="tdStats" class="stats"></div>
+      </section>
+      </div>
+    </div>
+
+    <!-- Fingerings -->
+    <div class="panel stage" id="panel-fingerings" hidden>
+      <div class="toolbar">
+        <label class="pill"><span>Answer</span>
+          <select id="fMode">
+            <option value="self">Check with Space</option>
+            <option value="auto">Auto</option>
+            <option value="timed">Timed</option>
+          </select>
+        </label>
+        <label class="pill"><span>Key</span><select id="fKey"></select></label>
+        <span class="tb-group" id="fTimedOpts">
+          <span class="pill stepper" title="Tempo"><button id="fSlower" aria-label="Slower">−</button><span class="bpm"><output id="fTempoOut">60</output><small>bpm</small></span><button id="fFaster" aria-label="Faster">+</button></span>
+          <label class="pill"><span>Every</span><select id="fBeats"><option value="1">beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select></label>
+        </span>
+        <details class="pop">
+          <summary class="pill ghost">Options</summary>
+          <div class="pop-body">
+            <label class="check" title="The note is played instead of shown"><input type="checkbox" id="fEar"> Ear training: hear the note instead of seeing it</label>
+          </div>
+        </details>
+        <span class="tb-spacer"></span>
+        <span class="chips">
+          <span class="chip" title="Streak"><b id="streak">0</b> streak</span>
+          <span class="chip" title="Best streak this session"><b id="bestStreak">0</b> best</span>
+          <span class="chip empty" title="Right / tried this session"><b id="sessionAcc">–</b> right</span>
+          <span class="chip empty" title="Average answer time"><b id="avgTime">–</b> avg</span>
+        </span>
+      </div>
+      <div class="stage-main">
+        <svg id="fStaff" role="img" aria-label="Note on the staff"></svg>
+        <div id="fNoteName" class="note-name">&nbsp;</div>
+      </div>
+      <div id="fFeedback" class="status" aria-live="polite">&nbsp;</div>
+      <div class="valve-slot"></div>
+      <p id="fHint" class="hint"></p>
+      <details class="card fold">
+        <summary><h2>Your notes</h2><span class="sub">accuracy per note · weak notes come up more often</span></summary>
+        <div id="noteGrid" class="note-grid"></div>
+      </details>
+    </div>
+
+    <!-- Scales -->
+    <div class="panel stage" id="panel-scales" hidden>
+      <div class="toolbar">
+        <label class="pill"><span>Key</span><select id="scKey"></select></label>
+        <label class="pill"><span>Scale</span><select id="scType"></select></label>
+        <label class="pill"><span>Octaves</span><select id="scOct"><option value="1">1</option><option value="2">2</option></select></label>
+        <label class="pill"><span>Mode</span>
+          <select id="scMode">
+            <option value="flow">Play along</option>
+            <option value="step">My own pace</option>
+          </select>
+        </label>
+        <span class="tb-group" id="scFlowOpts"><span class="pill stepper" title="Tempo"><button id="scSlower" aria-label="Slower">−</button><span class="bpm"><output id="scTempoOut">60</output><small>bpm</small></span><button id="scFaster" aria-label="Faster">+</button></span></span>
+        <details class="pop">
+          <summary class="pill ghost">Options</summary>
+          <div class="pop-body">
+            <label class="pill"><span>Start on</span><select id="scStart"></select></label>
+            <label class="check"><input type="checkbox" id="scPlayAlong"> Play every note for me (guide)</label>
+            <label class="check"><input type="checkbox" id="scLoop"> Loop, 4 bpm faster after each clean run</label>
+            <label class="check"><input type="checkbox" id="scShowF"> Show fingerings under the notes</label>
+          </div>
+        </details>
+        <span class="tb-spacer"></span>
+        <button id="scListen" class="pill ghost" title="Hear the whole scale">▶ Listen</button>
+        <button id="scRestart" class="pill ghost" title="Restart (R)">↺ Restart</button>
+      </div>
+      <div class="stage-main wide">
+        <div class="staff-scroll" id="scScroll"><svg id="scStaff" role="img" aria-label="Scale on the staff"></svg></div>
+      </div>
+      <div id="scFeedback" class="status" aria-live="polite">&nbsp;</div>
+      <div class="valve-slot"></div>
+      <p id="scHint" class="hint"></p>
+      <p id="scBest" class="hint best"></p>
+    </div>
+
+    <!-- Pieces -->
+    <div class="panel stage" id="panel-pieces" hidden>
+      <div class="toolbar">
+        <label class="pill grow"><span>Piece</span><select id="pcPiece"></select></label>
+        <span class="pill nav-pair" id="pcNav"><button id="pcPrev" title="Previous in this book ([)" aria-label="Previous piece">‹</button><button id="pcNext" title="Next in this book (])" aria-label="Next piece">›</button></span>
+        <button id="pcBrowse" class="pill ghost" title="Browse all pieces (B)">☰ Library <kbd>B</kbd></button>
+        <button id="pcNew" class="pill ghost" hidden>🎲 New <kbd>N</kbd></button>
+        <button id="pcImport" class="pill ghost">＋ Add music</button>
+      </div>
+      <div class="toolbar">
+        <label class="pill"><span>Mode</span>
+          <select id="pcMode">
+            <option value="play">Play along</option>
+            <option value="wait">Wait for me</option>
+            <option value="listen">Listen</option>
+          </select>
+        </label>
+        <label class="pill"><span>View</span>
+          <select id="pcView">
+            <option value="scroll">Scrolling</option>
+            <option value="page">Page</option>
+          </select>
+        </label>
+        <span class="pill stepper" title="Tempo"><button id="pcSlower" aria-label="Slower">−</button><span class="bpm"><output id="pcTempoOut">100</output><small>bpm</small></span><button id="pcFaster" aria-label="Faster">+</button></span>
+        <details class="pop" id="pcMore">
+          <summary class="pill ghost">Options <span id="pcMoreSum"></span></summary>
+          <div class="pop-body">
+            <div class="pop-row">
+              <label class="pill"><span>From</span><select id="pcFrom"></select></label>
+              <label class="pill"><span>To</span><select id="pcTo"></select></label>
+              <button id="pcWhole" class="link-btn">whole piece</button>
+            </div>
+            <div class="pop-row">
+              <label class="pill" title="Play it in another key — the key signature and every note move with it"><span>Key</span><select id="pcKey"></select></label>
+              <label class="pill"><span>Octave</span>
+                <select id="pcOct"><option value="-3"></option><option value="-2"></option><option value="-1"></option><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option></select>
+              </label>
+            </div>
+            <label class="check"><input type="checkbox" id="pcClick"> Metronome</label>
+            <label class="check" id="pcAccRow" hidden><input type="checkbox" id="pcAcc"> Piano accompaniment</label>
+            <label class="check"><input type="checkbox" id="pcGuide"> Play every note for me (guide)</label>
+            <label class="check"><input type="checkbox" id="pcLoop"> Loop</label>
+            <label class="check sub-check"><input type="checkbox" id="pcRamp"> …and speed up 4 bpm after each clean run (95%+)</label>
+            <label class="check"><input type="checkbox" id="pcMemo"> Memorize: hide notes until played</label>
+            <div class="pop-row">
+              <button id="pcResetTempo" class="link-btn">reset tempo</button>
+              <button id="pcEdit" class="link-btn" hidden>Edit</button>
+              <button id="pcDelete" class="link-btn danger" hidden>Delete</button>
+            </div>
+            <p class="sub tight">Tip: click a bar to start there, Shift-click to end there.</p>
+          </div>
+        </details>
+        <span class="tb-spacer"></span>
+        <span id="pcMeta" class="meta"></span>
+        <details class="pop hist-pop" id="pcHist" hidden>
+          <summary class="pill ghost" title="Your runs on this piece"><svg id="pcSpark" class="spark" viewBox="0 0 64 20" aria-hidden="true"></svg> History</summary>
+          <div class="pop-body" id="pcHistBody"></div>
+        </details>
+      </div>
+      <p id="pcNote" class="piece-note" hidden></p>
+      <p id="pcRangeWarn" class="note-box warn" hidden></p>
+      <div id="pcScore" class="score-box" title="Click a bar to start there · Shift-click to end there"></div>
+      <div id="pcFeedback" class="status" aria-live="polite">&nbsp;</div>
+      <div class="valve-slot"></div>
+    </div>
+
+    <!-- Rhythm -->
+    <div class="panel stage" id="panel-rhythm" hidden>
+      <div class="toolbar">
+        <label class="pill"><span>Level</span><select id="rhLevel"></select></label>
+        <label class="pill"><span>Bars</span><select id="rhBars"><option value="1">1</option><option value="2">2</option></select></label>
+        <label class="pill"><span>Time</span><select id="rhBeats"><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option></select></label>
+        <span class="pill stepper" title="Tempo"><button id="rhSlower" aria-label="Slower">−</button><span class="bpm"><output id="rhTempoOut">80</output><small>bpm</small></span><button id="rhFaster" aria-label="Faster">+</button></span>
+        <details class="pop">
+          <summary class="pill ghost">Options</summary>
+          <div class="pop-body">
+            <label class="check"><input type="checkbox" id="rhClick"> Click while I tap</label>
+            <label class="slider-row">Tempo <input type="range" id="rhTempo" min="40" max="208" step="1"></label>
+          </div>
+        </details>
+        <span class="tb-spacer"></span>
+        <span class="beat-dots" id="rhDots"></span>
+        <button id="rhMetro" class="pill ghost">Start metronome <kbd>M</kbd></button>
+      </div>
+      <div class="stage-main wide">
+        <div class="staff-scroll"><svg id="rhStaff" role="img" aria-label="Rhythm"></svg></div>
+      </div>
+      <div id="rhStatus" class="status" aria-live="polite">&nbsp;</div>
+      <button id="rhPad" class="tap-pad">Tap <kbd>Space</kbd></button>
+      <div class="actions">
+        <button id="rhStart" class="primary">Start <kbd>Space</kbd></button>
+        <button id="rhHear">Hear it <kbd>H</kbd></button>
+        <button id="rhNew">New rhythm <kbd>N</kbd></button>
+      </div>
+    </div>
+
+    <!-- Tuner -->
+    <div class="panel" id="panel-tuner" hidden>
+      <section class="card trainer tuner">
+        <div id="tunNote" class="tun-note">–</div>
+        <div id="tunCents" class="tun-cents">&nbsp;</div>
+        <div id="tunNeedleWrap" class="tun-meter idle">
+          <div class="tun-scale"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
+          <div class="tun-track"><div class="tun-zone"></div><div id="tunNeedle" class="tun-needle"></div></div>
+        </div>
+        <div id="tunFreq" class="tun-freq">&nbsp;</div>
+        <div id="tunFing" class="tun-fing">&nbsp;</div>
+        <div class="actions"><button id="tunStart" class="primary">Start listening <kbd>Space</kbd></button></div>
+        <p id="tunStatus" class="feedback bad"></p>
+        <p class="hint"><span id="tunA">A = 440 Hz</span> (change it in ⚙ Settings). Point the mic at the bell from a metre or so away; a quiet room helps the low notes.</p>
+      </section>
+      <section class="card inton">
+        <div class="inton-head">
+          <div>
+            <h2>Intonation map</h2>
+            <p class="sub tight">Play every note in your range, one at a time, and see which ones sit sharp or flat — and how far to move a slide to fix it.</p>
+          </div>
+          <span class="tb-spacer"></span>
+          <button id="intStart" class="pill primary">Start</button>
+        </div>
+        <div id="intLive" class="inton-live" hidden>
+          <div class="inton-target"><b id="intNote">–</b><span id="intFing"></span></div>
+          <div class="inton-meter"><div class="inton-zone"></div><div id="intNeedle" class="inton-needle"></div></div>
+          <p id="intMsg" class="sub tight">Play the note and hold it steady.</p>
+          <div class="pop-row center">
+            <button id="intHear" class="pill ghost">♪ Hear it</button>
+            <button id="intSkip" class="pill ghost">Skip ›</button>
+          </div>
+        </div>
+        <div id="intChart" class="inton-chart"></div>
+        <div id="intAdvice" class="inton-advice"></div>
+      </section>
+      <div class="today-row">
+      <section class="card">
+        <h2>Long-tone challenge</h2>
+        <p class="sub">Hold one note as long and as steadily as you can. The timer starts when it hears the note.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Note</span><select id="ltNote"></select></label>
+          <label class="pill"><span>Goal</span><select id="ltGoal"><option value="8">8 s</option><option value="12">12 s</option><option value="16">16 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+          <button id="ltStart" class="pill primary">Start</button>
+        </div>
+        <div class="bar-h big"><span id="ltBar" style="width:0%"></span></div>
+        <p id="ltMsg" class="feedback">&nbsp;</p>
+      </section>
+      <section class="card">
+        <h2>Lip slurs</h2>
+        <p class="sub">One fingering, moving between the notes it plays (its partials) in your range — air and lips only. The mic hears which partial you hit.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Fingering</span><select id="lsF"></select></label>
+          <label class="pill"><span>Pattern</span><select id="lsP"></select></label>
+          <button id="lsGo" class="pill primary">Practise ›</button>
+        </div>
+        <p class="sub tight" id="lsNotes"></p>
+      </section>
+      <section class="card">
+        <h2>Drone</h2>
+        <p class="sub">A steady reference note to tune against. Use headphones while the mic listens.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Note</span><select id="drNote"></select></label>
+          <button id="drBtn" class="pill">▶ Play drone</button>
+        </div>
+      </section>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="panel" id="panel-chart" hidden>
+      <section class="card">
+        <h2>Fingering chart</h2>
+        <p class="sub" id="chartDesc"></p>
+        <div id="chartRows" class="chart-rows"></div>
+      </section>
+    </div>
+
+    <!-- Valves: shared by Fingerings and Scales, moved into whichever is open. -->
+    <div id="valvePanel">
+      <div class="valves"></div>
+      <div class="actions">
+        <button id="submitBtn" class="primary">Submit <kbd>Space</kbd></button>
+        <button id="hearBtn">Hear note <kbd>H</kbd></button>
+      </div>
+      <p class="hint" id="valveHint"></p>
+    </div>
+
+
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Settings</h2>
+
+      <h3 class="set-h">Instrument</h3>
+      <label>Instrument <select id="setInstrument"></select></label>
+      <div class="row">
+        <label>Lowest note <select id="setLow"></select></label>
+        <label>Highest note <select id="setHigh"></select></label>
+      </div>
+      <div class="row">
+        <label>Accidentals
+          <select id="setSpelling">
+            <option value="flats">Flats only</option>
+            <option value="sharps">Sharps only</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label>Fingerings accepted
+          <select id="setAccept">
+            <option value="any">Any valid (alternates OK)</option>
+            <option value="primary">Main fingering only</option>
+          </select>
+        </label>
+      </div>
+
+      <h3 class="set-h">Sound</h3>
+      <div class="row">
+        <label>Instrument sound <select id="setTone"></select></label>
+        <label>Tuning (A =)
+          <select id="setA4"><option value="438">438 Hz</option><option value="439">439 Hz</option><option value="440">440 Hz</option><option value="441">441 Hz</option><option value="442">442 Hz</option><option value="443">443 Hz</option><option value="444">444 Hz</option><option value="445">445 Hz</option><option value="446">446 Hz</option></select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="setYouSound"> Hear your note when you finger it right (play-along)</label>
+      <label class="check"><input type="checkbox" id="setWrongSound"> Hear the wrong note when you miss (play-along)</label>
+      <label class="check"><input type="checkbox" id="setSound"> Fingerings: play the note after answering</label>
+      <label class="check"><input type="checkbox" id="setAutoplay"> Fingerings: play the note when it appears</label>
+      <label class="check"><input type="checkbox" id="setShowName"> Fingerings: show the note name before answering</label>
+
+      <h3 class="set-h">Timing</h3>
+      <div class="row">
+        <label>How strict
+          <select id="setTiming"><option value="strict">Strict</option><option value="normal">Normal</option><option value="lenient">Lenient</option></select>
+        </label>
+        <label>Audio offset (ms)
+          <span class="cal-row">
+            <input type="number" id="setLatency" class="num-input" min="-100" max="400" step="10" title="Bluetooth headphones are often 100–300 ms behind. Raise this if your notes are marked late.">
+            <button type="button" id="calBtn" class="small-btn" title="Tap along to the clicks to measure it">Calibrate…</button>
+          </span>
+        </label>
+      </div>
+      <div id="calBox" class="cal-box" hidden>
+        <p id="calMsg">Tap <kbd>Space</kbd> (or any valve key) exactly on each click.</p>
+        <div class="beat-dots" id="calDots"></div>
+      </div>
+
+      <h3 class="set-h">Keys &amp; mic</h3>
+      <label>Valve keys <span class="keybinds" id="setKeys"></span>
+        <small class="sub">Click one, then press the key you want. If a fingering never registers, your keyboard may not detect those keys together — pick others.</small>
+      </label>
+      <label class="check"><input type="checkbox" id="setAnyOctave"> Microphone: accept the right note in any octave</label>
+
+      <h3 class="set-h">Look &amp; data</h3>
+      <label>Theme
+        <select id="setTheme"><option value="auto">Auto (system)</option><option value="dark">Dark</option><option value="light">Light</option></select>
+      </label>
+      <div class="backup-row">
+        <span>Your progress lives in this browser.</span>
+        <button type="button" id="backupBtn" class="small-btn">⬇ Back up</button>
+        <button type="button" id="restoreBtn" class="small-btn">⬆ Restore</button>
+        <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="resetBtn" class="danger">Reset stats</button>
+        <button value="close" class="primary">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="libDlg" class="lib-dlg">
+    <form method="dialog" onsubmit="return false">
+      <div class="lib-head">
+        <h2>Library</h2>
+        <input type="search" id="libSearch" placeholder="Search pieces…" autocomplete="off">
+        <button value="close" class="icon-btn" aria-label="Close" formmethod="dialog" formnovalidate onclick="this.closest('dialog').close()">✕</button>
+      </div>
+      <div class="lib-chips" id="libChips"></div>
+      <div class="lib-list" id="libList"></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <dialog id="importDlg">
+    <form method="dialog" onsubmit="return false">
+      <h2>Add music</h2>
+      <div class="seg">
+        <button type="button" data-pane="file" class="active">Import a file</button>
+        <button type="button" data-pane="abc">Write it in</button>
+      </div>
+      <div class="imp-body">
+        <div id="impPdfView" class="pdf-view" hidden></div>
+        <div class="imp-main">
+          <div id="impFile">
+            <label class="drop" id="impDrop">
+              <input type="file" id="impInput" accept=".musicxml,.xml,.mxl,.abc,.txt,.pdf">
+              <b>Choose a file</b> or drop it here
+              <span>MusicXML (.musicxml, .xml, .mxl) from MuseScore, Sibelius, Finale, Dorico… · ABC (.abc) · or a PDF</span>
+            </label>
+            <div id="impPart" class="controls" hidden><label class="grow">Which part? <select id="impPartSel"></select></label></div>
+            <div id="impMsg" class="feedback"></div>
+            <div id="impFilePreview" class="score-box small" hidden></div>
+            <details id="impPdfHelp" class="help-box">
+              <summary>About PDFs</summary>
+              <p>Choose a PDF above and it opens beside the note editor.</p>
+              <ul>
+                <li><b>PDFs made by notation software</b> (MuseScore, LilyPond, Sibelius, Finale, Dorico…): the notes are <b>read automatically</b> — pitches, rhythms, key, clef and accidentals. Pick which staff if there are several, check it against the page, and fix anything odd with the palette.</li>
+                <li><b>Scanned PDFs</b> (photos of paper) hold only a picture, so copy the notes in with the palette as you read — or convert the scan with music-recognition software (<b>MuseScore 4</b>: File → Import PDF; or <b>Audiveris</b>) and import the MusicXML.</li>
+              </ul>
+            </details>
+          </div>
+          <div id="impAbc" hidden>
+            <input id="impTitle" class="text-input" placeholder="Title" autocomplete="off">
+            <div id="impPdfPartRow" class="controls compact" hidden><label class="grow">Read from <select id="impPdfPart"></select></label></div>
+            <div class="controls compact">
+              <label>Key <select id="palKey"></select></label>
+              <label>Time <select id="palTime"><option>4/4</option><option>3/4</option><option>2/4</option><option>6/8</option><option>2/2</option></select></label>
+              <label>Tempo <select id="palTempo"><option>60</option><option>72</option><option>84</option><option selected>96</option><option>108</option><option>120</option></select></label>
+            </div>
+            <div class="palette" id="palette">
+              <div class="pal-row" id="palDur">
+                <button type="button" data-dur="96" title="Whole (1)">𝅝</button>
+                <button type="button" data-dur="48" title="Half (2)">𝅗𝅥</button>
+                <button type="button" data-dur="24" title="Quarter (3)" class="on">♩</button>
+                <button type="button" data-dur="12" title="Eighth (4)">♪</button>
+                <button type="button" data-dur="6" title="Sixteenth (5)">𝅘𝅥𝅯</button>
+                <button type="button" id="palDot" title="Dotted (.)">·</button>
+                <span class="pal-gap"></span>
+                <button type="button" data-acc="-1" title="Flat (-)">♭</button>
+                <button type="button" data-acc="0" title="Natural (=)">♮</button>
+                <button type="button" data-acc="1" title="Sharp (#)">♯</button>
+                <span class="pal-gap"></span>
+                <button type="button" id="palDown" title="Octave down (↓)">−</button>
+                <span class="pal-oct">oct <output id="palOct">2</output></span>
+                <button type="button" id="palUp" title="Octave up (↑)">+</button>
+              </div>
+              <div class="pal-row notes">
+                <button type="button" data-note="C">C</button><button type="button" data-note="D">D</button><button type="button" data-note="E">E</button><button type="button" data-note="F">F</button><button type="button" data-note="G">G</button><button type="button" data-note="A">A</button><button type="button" data-note="B">B</button>
+                <span class="pal-gap"></span>
+                <button type="button" id="palRest" title="Rest (R)">rest</button>
+                <button type="button" id="palTie" title="Tie to the next note (T)">tie</button>
+                <button type="button" id="palBar" title="Barline (|)">bar |</button>
+                <button type="button" id="palBack" title="Delete the last thing (Backspace)">⌫</button>
+              </div>
+              <p class="pal-hint">Pick a length, then click notes — or type <kbd>A</kbd>–<kbd>G</kbd>, <kbd>1</kbd>–<kbd>5</kbd> for lengths, <kbd>.</kbd> dot, <kbd>↑</kbd><kbd>↓</kbd> octave, <kbd>R</kbd> rest, <kbd>|</kbd> bar. The key signature applies automatically.</p>
+            </div>
+            <div id="impPreview" class="score-box small"></div>
+            <div id="impAbcMsg" class="feedback"></div>
+            <textarea id="impText" class="text-input" rows="5" spellcheck="false"></textarea>
+            <details class="help-box">
+              <summary>Typing ABC directly</summary>
+              <p><code>C D E F G A B</code> is the octave from middle C; <code>c</code> is an octave up, each <code>,</code> an octave down — so tuba notes look like <code>B,,</code> (B♭2 in B♭) or <code>F,,,</code> (F1).
+              <code>^</code> sharp, <code>_</code> flat, <code>=</code> natural. A number after a note multiplies the length set by <code>L:</code> (<code>2</code> = twice, <code>/</code> = half, <code>3/2</code> = dotted). <code>z</code> is a rest, <code>-</code> ties to the next note, <code>(3</code> starts a triplet, <code>|</code> is a barline, <code>|: … :|</code> repeats.
+              Header lines: <code>T:</code> title, <code>M:</code> time signature, <code>L:</code> default note length, <code>Q:1/4=90</code> tempo, <code>K:</code> key (last).</p>
+            </details>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="impCancel">Cancel</button>
+        <button type="button" id="impSave" class="primary" disabled>Add to my pieces</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="welcome" class="welcome">
+    <form method="dialog">
+      <div class="wc-logo logo">brass<i>·</i>practice</div>
+      <p class="sub">Fingerings, scales, rhythm and real music for brass, right on your keyboard.</p>
+      <ol class="wc-steps">
+        <li><b>What do you play?</b>
+          <label class="pill grow"><span>Instrument</span><select id="wcInst"></select></label>
+        </li>
+        <li><b>Your valves</b>
+          <span id="wcKeys" class="wc-keys"></span>
+          <span class="sub tight" id="wcKeysSub"></span>
+        </li>
+        <li><b>Practise</b>
+          <span class="sub tight">Today gives you a short routine: warm-up, a scale, a note drill, rhythm and a piece.</span>
+        </li>
+      </ol>
+      <div class="dialog-actions">
+        <button value="tour" id="wcTour">Show me everything</button>
+        <button value="go" class="primary" id="wcGo" autofocus>Start practising</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="help">
+    <form method="dialog">
+      <h2>How to use Brass Practice</h2>
+      <p>Your instrument (under the logo) sets the fingerings, range, clef and sounds; progress is kept per instrument.</p>
+      <h3>Answering</h3>
+      <p><b>Keys:</b> hold <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> like real valves (or tap the pistons). Nothing held = open. Trombone: <kbd>1</kbd>–<kbd>7</kbd> for slide positions.
+        <b>Mic:</b> switch <b>⌨ Keys / 🎤 Mic</b> at the bottom of the sidebar to play your real instrument instead — it checks the note and the partial.</p>
+      <h3>Practice</h3>
+      <ul>
+        <li><b>Today</b> — a five-step routine; <kbd>Space</kbd> starts the next step. Every other day the last step is the next study from your method books.</li>
+        <li><b>Fingerings</b> — read a note, finger it. <b>Auto</b> moves on when you're right; <b>Timed</b> brings notes on the beat.</li>
+        <li><b>Scales</b> — every major and minor, played along with the click (green on time, amber late, red wrong).</li>
+        <li><b>Pieces</b> — warm-ups, études, melodies, sight-reading, and the <b>method books</b>: Kopprasch's 60 Studies and 53 Bordogni vocalises. <kbd>B</kbd> opens the library. The music scrolls past the gold line; you hear your note as you finger it, and misses show the right fingering.
+          Under <b>Options</b>: start/end bars (or click a bar), loop (with a 4-bpm speed-up after clean runs), key, octave, guide, memorize.
+          After a run it points out your trouble spot; with the mic it records you (<kbd>P</kbd> to hear your take) and shows which notes were sharp or flat. <b>History</b> charts your runs.</li>
+        <li><b>Rhythm</b> — <kbd>Space</kbd> for a count-in, then tap each note.</li>
+        <li><b>Tuner</b> — tuner, an <b>intonation map</b> (play every note; see which sit sharp or flat and roughly how far to move which slide), a <b>lip slur builder</b> (pick a fingering; practise its partials with the mic), long tones and a drone.</li>
+      </ul>
+      <h3>Your own music</h3>
+      <p><b>＋ Add music</b> imports MusicXML/MXL (MuseScore, Sibelius, Finale, Dorico), ABC, or PDFs exported from notation software (read automatically — check it against the page). Scans: copy them in with the note palette.</p>
+      <h3>Everywhere</h3>
+      <p><kbd>H</kbd> hear the note · <kbd>+</kbd>/<kbd>−</kbd> tempo · <kbd>Esc</kbd> stop · <kbd>?</kbd> this help. If notes are marked late, use ⚙ → Timing → <b>Calibrate</b>. Progress lives in this browser — ⚙ → Back up keeps a copy.</p>
+      <details class="help-box"><summary>Credits</summary>
+      <p>Trumpet and trombone: Philharmonia Orchestra samples via nbrosowsky/tonejs-instruments (CC BY 3.0). Orchestral tubas: <a href="https://theremin.music.uiowa.edu/MIS.html">University of Iowa Electronic Music Studios</a> (David Spies) and Philharmonia Orchestra samples via <a href="https://github.com/nbrosowsky/tonejs-instruments">nbrosowsky/tonejs-instruments</a> (CC BY 3.0). Soundfont tubas: MusyngKite (CC BY-SA 3.0) and FluidR3 GM (CC BY 3.0) soundfonts via <a href="https://github.com/gleitz/midi-js-soundfonts">gleitz/midi-js-soundfonts</a>.</p>
+        <p>Kopprasch, 60 Studies Op. 6: from the <a href="https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1186">Mutopia Project</a> edition by Jay Anderson (CC BY-SA 3.0), converted to ABC at concert pitch; the converted studies are shared under the same licence. Bordogni vocalises: from Michael Shirley's transcriptions of the original 1840s–50s editions (<a href="https://github.com/muschem/trombone">github.com/muschem/trombone</a>, public domain / CC0).</p>
+        <p>PDF viewer: pdf.js (Apache 2.0). Built-in exercises and études are original; melodies are traditional or public domain.</p>
+      </details>
+      <div class="dialog-actions end"><button value="close" class="primary">Got it</button></div>
+    </form>
+  </dialog>
+
+  <script src="sounds/tuba-iowa.js"></script>
+  <script src="sounds/tuba-phil.js"></script>
+  <script src="sounds/tuba-musyng.js"></script>
+  <script src="sounds/tuba-fluid.js"></script>
+  <script src="sounds/trumpet-phil.js"></script>
+  <script src="sounds/trombone-phil.js"></script>
+  <script src="fingerings.js"></script>
+  <script src="js/instruments.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/pitch.js"></script>
+  <script src="js/mode-fingerings.js"></script>
+  <script src="js/mode-scales.js"></script>
+  <script src="js/mode-rhythm.js"></script>
+  <script src="js/score.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/library-methods.js"></script>
+  <script src="js/omr.js"></script>
+  <script src="js/mode-pieces.js"></script>
+  <script src="js/import.js"></script>
+  <script src="js/mode-today.js"></script>
+  <script src="js/mode-tuner.js"></script>
+  <script src="js/mode-intonation.js"></script>
+  <script src="js/mode-chart.js"></script>
+  <script src="js/metronome.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
