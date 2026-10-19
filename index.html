@@ -11,10 +11,12 @@
     <h1><span class="logo">brass<i>·</i>practice</span> <button id="instBtn" class="inst-btn" title="Change instrument"></button></h1>
     <nav class="tabs">
       <button class="tab" data-tab="today"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5l2.2 2.2 4.6-4.6"/></svg><span>Today</span></button>
+      <button class="tab" data-tab="warmup"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3M3 15h14a3 3 0 1 1-3 3M3 12h7"/></svg><span>Warm-up</span></button>
       <button class="tab" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
       <button class="tab" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
       <button class="tab" data-tab="pieces"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Pieces</span></button>
       <button class="tab" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
+      <button class="tab" data-tab="echo"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M9 6v12M13 9v6"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg><span>Echo</span></button>
       <button class="tab" data-tab="tuner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/><path d="M4 20h16"/></svg><span>Tuner</span></button>
       <button class="tab" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
     </nav>
@@ -247,6 +249,104 @@
       </div>
     </div>
 
+    <!-- Echo -->
+    <div class="panel stage" id="panel-echo" hidden>
+      <div class="toolbar">
+        <label class="pill"><span>Level</span><select id="ecLevel"></select></label>
+        <label class="pill"><span>Key</span><select id="ecKey"></select></label>
+        <span class="pill stepper" title="Tempo"><button id="ecSlower" aria-label="Slower">−</button><span class="bpm"><output id="ecBpm">80</output><small>bpm</small></span><button id="ecFaster" aria-label="Faster">+</button></span>
+        <span class="tb-spacer"></span>
+        <span class="chips">
+          <span class="chip" title="Phrases echoed / tried this session"><b id="ecRight">0</b>/<b id="ecTried">0</b> echoed</span>
+          <span class="chip" title="In a row"><b id="ecStreak">0</b> in a row</span>
+        </span>
+      </div>
+      <div class="stage-main wide"><div id="ecScore" class="score-box small echo-box" aria-live="polite"></div></div>
+      <div id="ecFeedback" class="status" aria-live="polite">&nbsp;</div>
+      <div class="valve-slot"></div>
+      <p id="ecHint" class="hint"></p>
+    </div>
+
+    <!-- Warm-up -->
+    <div class="panel" id="panel-warmup" hidden>
+      <div class="today-row">
+      <section class="card">
+        <h2>Breathing</h2>
+        <p class="sub">Slow, full breaths before you play: follow the circle, in as it grows and out as it shrinks. One count a second.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Pattern</span><select id="brPattern"></select></label>
+          <label class="pill"><span>Rounds</span><select id="brRounds"><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option></select></label>
+          <label class="check"><input type="checkbox" id="brClick"> Tick each count</label>
+          <button id="brStart" class="pill primary">Start</button>
+        </div>
+        <div class="br-stage"><div id="brCircle" class="br-circle"></div><div class="br-text"><b id="brPhase">&nbsp;</b><span id="brCount"></span></div></div>
+      </section>
+      <section class="card">
+        <h2>Mouthpiece buzzing</h2>
+        <p class="sub">Hear the line, then buzz it on the mouthpiece alone. Your pitch is drawn over it — the mic hears a buzz too.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Line</span><select id="bzPattern"></select></label>
+          <label class="pill"><span>From</span><select id="bzNote"></select></label>
+          <button id="bzStart" class="pill primary">Start</button>
+        </div>
+        <svg id="bzGraph" class="lt-graph bz-graph" viewBox="0 0 320 110" role="img" aria-label="The line to buzz, and your pitch"></svg>
+        <p id="bzMsg" class="feedback">&nbsp;</p>
+      </section>
+      </div>
+      <div class="today-row">
+      <section class="card">
+        <h2>Long-tone challenge</h2>
+        <p class="sub">Hold one note as long and as steadily as you can, in the shape you pick. The timer starts when it hears the note.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Note</span><select id="ltNote"></select></label>
+          <label class="pill"><span>Goal</span><select id="ltGoal"><option value="8">8 s</option><option value="12">12 s</option><option value="16">16 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+          <label class="pill" title="How loud over the note: the dashed line on the graph"><span>Shape</span><select id="ltShape"><option value="steady">Steady</option><option value="cres">Crescendo</option><option value="dim">Diminuendo</option><option value="swell">Swell (messa di voce)</option></select></label>
+          <button id="ltStart" class="pill primary">Start</button>
+        </div>
+        <div class="bar-h big"><span id="ltBar" style="width:0%"></span></div>
+        <svg id="ltGraph" class="lt-graph" viewBox="0 0 300 96" role="img" aria-label="Loudness and pitch over the note" hidden></svg>
+        <div class="lt-key" id="ltKey" hidden><i class="k-loud"></i>loudness <i class="k-target"></i>aim <i class="k-pitch"></i>pitch (±30¢)</div>
+        <p id="ltMsg" class="feedback">&nbsp;</p>
+      </section>
+      <section class="card">
+        <h2>Tonguing</h2>
+        <p class="sub">Tongue one note in time with the click; see how even your notes are. For double tonguing (T-K), it shows whether the K notes lag. Use headphones.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Note</span><select id="tgNote"></select></label>
+          <label class="pill"><span>Notes</span><select id="tgSub"><option value="2">8ths</option><option value="3">Triplets</option><option value="4">16ths</option></select></label>
+          <span class="pill stepper" title="Tempo"><button id="tgSlower" aria-label="Slower">−</button><span class="bpm"><output id="tgBpm">80</output><small>bpm</small></span><button id="tgFaster" aria-label="Faster">+</button></span>
+          <button id="tgStart" class="pill primary">Start</button>
+        </div>
+        <svg id="tgGraph" class="tg-graph" viewBox="0 0 300 44" role="img" aria-label="Your note starts against the beat" hidden></svg>
+        <p id="tgMsg" class="feedback">&nbsp;</p>
+      </section>
+      </div>
+      <div class="today-row">
+      <section class="card">
+        <h2>Lip slurs</h2>
+        <p class="sub">One fingering, moving between the notes it plays (its partials) in your range — air and lips only. The mic hears which partial you hit.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Fingering</span><select id="lsF"></select></label>
+          <label class="pill"><span>Pattern</span><select id="lsP"></select></label>
+          <button id="lsGo" class="pill primary">Practise ›</button>
+        </div>
+        <p class="sub tight" id="lsNotes"></p>
+      </section>
+      <section class="card">
+        <h2>Range builder</h2>
+        <p class="sub">Push your highest or lowest note one step further. A note counts once you hold it for a second, in tune. Rest between tries.</p>
+        <div class="toolbar">
+          <button id="rgUp" class="pill primary">↑ Extend up</button>
+          <button id="rgDown" class="pill">↓ Extend down</button>
+          <button id="rgStop" class="pill ghost" hidden>Stop</button>
+        </div>
+        <div class="rg-target"><b id="rgNote">–</b><span id="rgFing"></span></div>
+        <p id="rgMsg" class="feedback">&nbsp;</p>
+        <p id="rgBest" class="sub tight"></p>
+      </section>
+      </div>
+    </div>
+
     <!-- Tuner -->
     <div class="panel" id="panel-tuner" hidden>
       <section class="card trainer tuner">
@@ -285,42 +385,9 @@
         <div id="intAdvice" class="inton-advice"></div>
       </section>
       <div class="today-row">
-      <section class="card">
-        <h2>Long-tone challenge</h2>
-        <p class="sub">Hold one note as long and as steadily as you can, in the shape you pick. The timer starts when it hears the note.</p>
-        <div class="toolbar">
-          <label class="pill"><span>Note</span><select id="ltNote"></select></label>
-          <label class="pill"><span>Goal</span><select id="ltGoal"><option value="8">8 s</option><option value="12">12 s</option><option value="16">16 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
-          <label class="pill" title="How loud over the note: the dashed line on the graph"><span>Shape</span><select id="ltShape"><option value="steady">Steady</option><option value="cres">Crescendo</option><option value="dim">Diminuendo</option><option value="swell">Swell (messa di voce)</option></select></label>
-          <button id="ltStart" class="pill primary">Start</button>
-        </div>
-        <div class="bar-h big"><span id="ltBar" style="width:0%"></span></div>
-        <svg id="ltGraph" class="lt-graph" viewBox="0 0 300 96" role="img" aria-label="Loudness and pitch over the note" hidden></svg>
-        <div class="lt-key" id="ltKey" hidden><i class="k-loud"></i>loudness <i class="k-target"></i>aim <i class="k-pitch"></i>pitch (±30¢)</div>
-        <p id="ltMsg" class="feedback">&nbsp;</p>
-      </section>
-      <section class="card">
-        <h2>Tonguing</h2>
-        <p class="sub">Tongue one note in time with the click; see how even your notes are. For double tonguing (T-K), it shows whether the K notes lag. Use headphones.</p>
-        <div class="toolbar">
-          <label class="pill"><span>Note</span><select id="tgNote"></select></label>
-          <label class="pill"><span>Notes</span><select id="tgSub"><option value="2">8ths</option><option value="3">Triplets</option><option value="4">16ths</option></select></label>
-          <span class="pill stepper" title="Tempo"><button id="tgSlower" aria-label="Slower">−</button><span class="bpm"><output id="tgBpm">80</output><small>bpm</small></span><button id="tgFaster" aria-label="Faster">+</button></span>
-          <button id="tgStart" class="pill primary">Start</button>
-        </div>
-        <svg id="tgGraph" class="tg-graph" viewBox="0 0 300 44" role="img" aria-label="Your note starts against the beat" hidden></svg>
-        <p id="tgMsg" class="feedback">&nbsp;</p>
-      </section>
-      <section class="card">
-        <h2>Lip slurs</h2>
-        <p class="sub">One fingering, moving between the notes it plays (its partials) in your range — air and lips only. The mic hears which partial you hit.</p>
-        <div class="toolbar">
-          <label class="pill"><span>Fingering</span><select id="lsF"></select></label>
-          <label class="pill"><span>Pattern</span><select id="lsP"></select></label>
-          <button id="lsGo" class="pill primary">Practise ›</button>
-        </div>
-        <p class="sub tight" id="lsNotes"></p>
-      </section>
+      
+      
+      
       <section class="card">
         <h2>Drone</h2>
         <p class="sub">A steady reference note to tune against. Use headphones while the mic listens.</p>
@@ -621,6 +688,8 @@
   <script src="js/mode-today.js"></script>
   <script src="js/mode-tuner.js"></script>
   <script src="js/mode-intonation.js"></script>
+  <script src="js/mode-warmup.js"></script>
+  <script src="js/mode-echo.js"></script>
   <script src="js/mode-chart.js"></script>
   <script src="js/metronome.js"></script>
   <script src="js/main.js"></script>

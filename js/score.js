@@ -743,8 +743,34 @@ TP.score = (() => {
         at.svg.appendChild(el('text', { x: at.x, y: bottom - 6, 'font-size': 12, 'text-anchor': 'middle', class: 'annot ' + cls }, text));
       },
       setState(ev, state) {
-        for (const g of evEls.get(ev) || []) g.setAttribute('class', 'sc-ev' + (state ? ' ' + state : '') + (ev === current ? ' current' : ''));
+        for (const g of evEls.get(ev) || []) {
+          g.setAttribute('class', 'sc-ev' + (state ? ' ' + state : '') + (ev === current ? ' current' : ''));
+          // A mark as well as a colour, so grading doesn't rely on telling red from green.
+          const old = g.querySelector('.state-mark');
+          if (old) old.remove();
+          const mark = { miss: '×', late: '›' }[state];
+          const e = tl.events[ev];
+          if (mark && e && e.midi !== null) {
+            const at = evX.get(ev);
+            g.appendChild(el('text', { x: at.x, y: Math.min(yOf(stepOf(e)) - 12, yOf(10)), 'font-size': 12, 'text-anchor': 'middle', class: 'state-mark' }, mark));
+          }
+        }
       },
+      // A line through a note showing the pitch actually played over its length
+      // (points: { f: 0–1 through the note, c: cents }; up = sharp, one staff step = 50¢).
+      trace(ev, points, ticks) {
+        const e = tl.events[ev], a = evX.get(ev);
+        if (!e || e.midi === null || !a || points.length < 2) return;
+        const b = posOfTick(e.start + ticks);
+        const x2 = b && b.svg === a.svg && b.x > a.x ? b.x - 4 : a.x + 24;
+        const y = yOf(stepOf(e));
+        const off = points.reduce((s, p) => s + Math.abs(p.c), 0) / points.length;
+        a.svg.appendChild(el('polyline', {
+          points: points.map(p => `${(a.x + (x2 - a.x) * p.f).toFixed(1)},${(y - Math.max(-60, Math.min(60, p.c)) * 0.12).toFixed(1)}`).join(' '),
+          class: 'ptrace' + (off > 25 ? ' off' : off > 12 ? ' close' : ''),
+        }));
+      },
+      clearTraces() { for (const s of lineEls) s.querySelectorAll('.ptrace').forEach(n => n.remove()); },
       setCurrent(ev, scroll = true) {
         const prev = current;
         current = ev;

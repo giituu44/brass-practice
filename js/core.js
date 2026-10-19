@@ -68,6 +68,19 @@ const TP = (() => {
     tgBpm: 80,            // tonguing trainer tempo
     tgSub: 4,             // …and notes per beat
     intAlts: false,       // intonation map: measure alternate fingerings too
+    compensating: false,  // 4-valve horn with compensating valves (combinations with 4 stay in tune)
+    cbColors: false,      // colour-blind friendly grading colours
+    fRead: 'concert',     // Fingerings: read in 'concert' pitch, 'band' (brass band treble clef) or 'tenor' clef
+    echoLevel: 1,         // Echo: phrase difficulty 1–4
+    echoBpm: 80,
+    echoKey: 'any',
+    pieceDuet: true,      // duets: the app plays the other part
+    duetPart: 1,          // …and you play part 1 or 2
+    myFingerings: true,   // Pieces: show a fingering that sits better on your horn (from the intonation map)
+    todayCustom: null,    // Today: your own list of steps (null = built from the time you have)
+    breathPattern: '4-0-8',
+    breathRounds: 6,
+    buzzPattern: 'siren',
   };
 
   // ---------- storage ----------
@@ -198,6 +211,17 @@ const TP = (() => {
     return map;
   }
   const flatLabel = midi => label(spell(midi, 'flats'));
+  // How far a valve combination lands from in tune, in cents (+ = sharp), on an ideal
+  // horn: each valve's tubing is cut for the open horn, so two or more together are
+  // too short. Compensating 4-valve horns fix the combinations that use the 4th valve.
+  const VALVE_SEMIS = { 1: 2, 2: 1, 3: 3, 4: 5 };
+  function comboCents(f) {
+    if (!inst || inst.kind === 'slide' || !f || f.length < 2) return 0;
+    if (S.compensating && f.includes('4')) return 0;
+    const semis = [...f].reduce((a, v) => a + VALVE_SEMIS[v], 0);
+    const added = [...f].reduce((a, v) => a + (2 ** (VALVE_SEMIS[v] / 12) - 1), 0);
+    return Math.round(1200 * Math.log2(2 ** (semis / 12) / (1 + added)));
+  }
   const fmtFingering = f => (f === '' ? 'open' : inst.kind === 'slide' ? 'pos ' + f : f);
 
   function checkFingering(midi, ans) {
@@ -231,7 +255,18 @@ const TP = (() => {
   const KEY_STEPS = {
     bass: { sharp: { F: 6, C: 3, G: 7, D: 4, A: 1, E: 5, B: 2 }, flat: { B: 2, E: 5, A: 1, D: 4, G: 0, C: 3, F: -1 } },
     treble: { sharp: { F: 8, C: 5, G: 9, D: 6, A: 3, E: 7, B: 4 }, flat: { B: 4, E: 7, A: 3, D: 6, G: 1, C: 5, F: 2 } },
+    // Tenor clef: the sharps start low (F♯ on the second line), the flats on the third space.
+    tenor: { sharp: { F: 2, C: 6, G: 3, D: 7, A: 4, E: 8, B: 5 }, flat: { B: 5, E: 8, A: 4, D: 7, G: 3, C: 6, F: 2 } },
   };
+  // Bottom staff line per clef (diatonic index): G2 bass, E4 treble, D3 tenor.
+  const CLEF_BOTTOM = { bass: 4 + 7 * 2, treble: 2 + 7 * 4, tenor: 1 + 7 * 3 };
+  // Draw in another clef for a while (e.g. a reading drill); returns the one it replaced.
+  function useClef(name) {
+    const was = clef;
+    clef = CLEF_BOTTOM[name] !== undefined ? name : 'bass';
+    BOTTOM = CLEF_BOTTOM[clef];
+    return was;
+  }
   const SHOWN_ACC = { '-2': '𝄫', '-1': '♭', '0': '♮', '1': '♯', '2': '𝄪' };
   const KEYSIG_X = 44;
   // Room the clef and key signature take; notes start after this.
@@ -251,6 +286,9 @@ const TP = (() => {
     if (clef === 'treble') {
       // Treble clef: the curl wraps the G4 line (step 2).
       svg.appendChild(el('text', { x: 10, y: yOf(2) + 15, 'font-size': 58, class: 'clef' }, '𝄞'));
+    } else if (clef === 'tenor') {
+      // Tenor clef: a C clef centred on the fourth line (middle C, step 6).
+      svg.appendChild(el('text', { x: 12, y: yOf(6) + 12, 'font-size': 46, class: 'clef' }, '𝄡'));
     } else {
       // Bass clef: the dots sit around the F3 line (step 6).
       svg.appendChild(el('text', { x: 12, y: yOf(6) + 26, 'font-size': 50, class: 'clef' }, '𝄢'));
@@ -302,6 +340,9 @@ const TP = (() => {
         svg.appendChild(el('line', { x1: x - 13, x2: x + 13, y1: yOf(s), y2: yOf(s), class: 'staff-line' }));
       }
       const g = el('g', { class: 'note' + (it.cls ? ' ' + it.cls : '') });
+      // A mark as well as a colour (× wrong, › late or fixed), so grading reads without colour.
+      const mark = { wrong: '×', fixed: '›' }[it.cls];
+      if (mark) g.appendChild(el('text', { x, y: Math.min(y - 13, yOf(10)), 'font-size': 13, 'text-anchor': 'middle', class: 'state-mark' }, mark));
       const acc = it.acc !== undefined ? it.acc : (note.acc || null);
       if (acc !== null) accGlyph(g, acc, x - 20, y);
       // Whole note: a filled oval with a tilted hole.
@@ -721,7 +762,7 @@ const TP = (() => {
 
   // ---------- instruments ----------
   // Practice history kept separately for each instrument.
-  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones'];
+  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones', 'rangeRec', 'echo'];
   let inst = null;
   function applyInstrument(id) {
     const next = INSTRUMENTS.byId[id] || INSTRUMENTS.byId['tuba-bb4'];
@@ -740,8 +781,7 @@ const TP = (() => {
     Object.assign(FINGERINGS, inst.chart());
     ALL_MIDI.length = 0;
     ALL_MIDI.push(...Object.keys(FINGERINGS).map(Number).sort((a, b) => a - b));
-    clef = inst.clef;
-    BOTTOM = clef === 'treble' ? 2 + 7 * 4 : 4 + 7 * 2;
+    useClef(inst.clef);
     const r = S.ranges[inst.id] || { low: inst.range[0], high: inst.range[1] };
     S.low = Math.max(ALL_MIDI[0], r.low);
     S.high = Math.min(ALL_MIDI[ALL_MIDI.length - 1], r.high);
@@ -758,7 +798,8 @@ const TP = (() => {
     LETTERS, NATURAL_PC, ACC_TEXT, SHARPS, MAJOR_FIFTHS, MAJOR_STEPS,
     spell, spellAs, label, flatLabel, fmtFingering, checkFingering, tonicPc, tonicName,
     keyFifths, keySigAcc, shownAccidentals, majorLetters,
-    el, stepOf, yOf, stepRange, drawStaff, drawStaffBase, staffStart, accGlyph,
+    el, stepOf, yOf, stepRange, drawStaff, drawStaffBase, staffStart, accGlyph, useClef, comboCents,
+    clef: () => clef,
     audio, heardTime, preload, playMidi, playPiano, click, makeRun, hz,
     VALVE_KEYS, held, touched, fingering, renderValves, markAnswer, clearLatched, resetValves,
     logValves, fingeringAt, judgeBeat, onValves: fn => valveListeners.push(fn), setSubmitLabel,

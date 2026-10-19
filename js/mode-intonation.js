@@ -249,7 +249,7 @@
     TP.save();
     TP.show('pieces');
   });
-  document.querySelector('.tab[data-tab="tuner"]').addEventListener('click', () => setTimeout(fillSlurs, 0));
+  document.querySelector('.tab[data-tab="warmup"]').addEventListener('click', () => setTimeout(fillSlurs, 0));
   fillSlurs();
 
   TP.inton = { stop, render };

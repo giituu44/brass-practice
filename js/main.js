@@ -174,7 +174,7 @@
 
   // ---------- the mic: level meter, and its delay measured by playing on clicks ----------
   // The mic only stays on after Settings if you're answering with it or in the Tuner.
-  const micStillNeeded = () => S.input === 'mic' || S.tab === 'tuner';
+  const micStillNeeded = () => S.input === 'mic' || S.tab === 'tuner' || S.tab === 'warmup';
   async function micOn() {
     if (TP.mic.active) return true;
     try { await TP.mic.start(); return true; } catch (e) { $('micMeterTxt').textContent = TP.micError(e); return false; }
@@ -385,7 +385,7 @@
         TP.toast(TP.micError(e), 7000);
         mode = 'valves';
       }
-    } else if (S.tab !== 'tuner') {
+    } else if (S.tab !== 'tuner' && S.tab !== 'warmup') {
       TP.mic.stop();
     }
     S.input = mode;

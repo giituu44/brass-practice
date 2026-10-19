@@ -763,6 +763,22 @@ svg .annot.flat { fill: #6fa8ef; }
 .tg-graph .hit.close { fill: var(--warn); }
 .tg-graph .hit.off { fill: var(--bad); }
 .tg-graph .missed { fill: none; stroke: var(--bad); stroke-width: 1.2; }
+.br-stage { display: grid; place-items: center; height: 170px; position: relative; }
+.br-circle { width: 150px; height: 150px; border-radius: 50%; background: var(--good-soft); border: 3px solid var(--good); transform: scale(.35); transition: transform 1s linear; }
+.br-text { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.br-text b { font-size: 17px; }
+.br-text span { font-size: 12px; color: var(--muted); }
+.bz-graph .target { fill: none; stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; opacity: .6; }
+.bz-graph .pt { fill: var(--good); }
+.bz-graph .pt.close { fill: var(--warn); }
+.bz-graph .pt.off { fill: var(--bad); }
+.bz-graph .axis { font-size: 8px; fill: var(--muted); }
+.rg-target { display: flex; align-items: baseline; gap: 12px; justify-content: center; margin: 8px 0 2px; }
+.rg-target b { font-size: 34px; font-family: Georgia, serif; }
+.rg-target span { color: var(--muted); font-size: 15px; }
+.echo-box { min-height: 120px; display: grid; align-items: center; }
+.echo-hidden { display: flex; gap: 18px; justify-content: center; }
+.echo-hidden span { width: 44px; height: 56px; border-radius: 10px; background: var(--valve); display: grid; place-items: center; font: 700 26px Georgia, serif; color: var(--muted); }
 .mic-meter-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; }
 .mic-meter { position: relative; flex: 1; height: 10px; border-radius: 5px; background: var(--valve); overflow: hidden; }
 .mic-meter span { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--good); transition: width 60ms linear; }

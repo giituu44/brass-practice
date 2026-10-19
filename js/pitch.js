@@ -9,6 +9,8 @@ TP.mic = (() => {
   // (low = needs more sound, for noisy rooms; high = for quiet mics).
   const SENS = { low: 3, normal: 1, high: 0.35 };
   const gate = () => MIN_RMS * (SENS[TP.S.micSens] || 1);
+  // Mouthpiece buzzing is rougher than a played note: a looser test for 'has a pitch'.
+  let loose = false;
 
   // Returns { freq, clarity, rms } for a block of samples (freq 0 = no pitch).
   function detect(buf, sr) {
@@ -126,7 +128,7 @@ TP.mic = (() => {
       const r = detect(buf, sr);
       const onset = loudness(buf, Math.min(fresh, buf.length), t + buf.length / sr / 2);
       let reading = { t, midi: null, cents: 0, freq: 0, rms: r.rms };
-      if (r.freq && r.clarity >= MIN_CLARITY && (!live || t > TP.outputUntil + 0.08)) {
+      if (r.freq && r.clarity >= (loose ? 0.6 : MIN_CLARITY) && (!live || t > TP.outputUntil + 0.08)) {
         const m = toMidi(r.freq);
         let concert = Math.round(m);
         // Near the edge between two notes, stay on the one already sounding
@@ -262,6 +264,7 @@ TP.mic = (() => {
 
   return {
     detect, analyse, start, stop, attach, heard, matches, centsOn, gate, noteStarts,
+    setLoose: on => { loose = !!on; },
     get source() { return source; },
     on: fn => listeners.push(fn),
     get active() { return !!timer; },
