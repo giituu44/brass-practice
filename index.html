@@ -76,8 +76,12 @@
           <div class="ring" id="tdRing"></div>
         </div>
         <ol id="tdSteps" class="steps"></ol>
-        <p class="hint tight"><kbd>Space</kbd> starts the next step.</p>
+        <div class="td-actions">
+          <button id="tdSession" class="pill primary">▶ Start session</button>
+          <span class="hint tight">A session runs the steps one after another, with a short rest between. <kbd>Space</kbd> starts just the next step.</span>
+        </div>
       </section>
+      <section class="card setup" id="tdSetup" hidden></section>
       <div class="today-row">
       <section class="card">
         <h2>This week</h2>
@@ -89,6 +93,23 @@
         <div id="tdStats" class="stats"></div>
       </section>
       </div>
+      <section class="card">
+        <div class="today-head">
+          <h2>Goals</h2>
+          <details class="pop" id="tdGoalAdd">
+            <summary class="pill ghost">＋ Add a goal</summary>
+            <div class="pop-body goal-form">
+              <label class="pill"><span>Goal</span><select id="gType"><option value="piece">Play a piece cleanly at a tempo</option><option value="minutes">Practise every week</option></select></label>
+              <div id="gPieceRow" class="pop-row"><label class="pill grow"><span>Piece</span><select id="gPiece"></select></label>
+                <label class="pill"><span>at</span><input id="gBpm" type="number" min="30" max="240" value="100" class="num-input small-num"><small>bpm</small></label></div>
+              <div id="gMinRow" class="pop-row" hidden><label class="pill"><span>Minutes a week</span><input id="gMin" type="number" min="10" max="2000" step="10" value="120" class="num-input small-num"></label></div>
+              <label class="pill"><span>By (optional)</span><input id="gBy" type="date" class="num-input"></label>
+              <button id="gSave" type="button" class="pill primary">Add goal</button>
+            </div>
+          </details>
+        </div>
+        <div id="tdGoals" class="goals"></div>
+      </section>
       <section class="card">
         <h2>Journal</h2>
         <label class="sub" for="tdJournal">What went well today, and what to work on next time.</label>
@@ -202,6 +223,7 @@
           </select>
         </label>
         <span class="pill stepper" title="Tempo"><button id="pcSlower" aria-label="Slower">−</button><span class="bpm"><output id="pcTempoOut">100</output><small>bpm</small></span><button id="pcFaster" aria-label="Faster">+</button></span>
+        <button id="pcCoach" class="pill ghost coach" hidden></button>
         <details class="pop" id="pcMore">
           <summary class="pill ghost">Options <span id="pcMoreSum"></span></summary>
           <div class="pop-body">
@@ -226,6 +248,10 @@
             <label class="check"><input type="checkbox" id="pcLoop"> Loop</label>
             <label class="check sub-check"><input type="checkbox" id="pcRamp"> …and speed up 4 bpm after each clean run (95%+)</label>
             <label class="check"><input type="checkbox" id="pcMemo"> Memorize: hide notes until played</label>
+            <div class="pop-row">
+              <label class="pill" title="Fingerings under the notes — fading: all of them for your first two runs, then only the notes you missed last time"><span>Fingerings</span><select id="pcHints"><option value="off">Hidden</option><option value="fade">Fade as I learn</option><option value="always">Always shown</option></select></label>
+              <label class="pill" id="pcBackingRow" title="For music without its own accompaniment"><span>Backing</span><select id="pcBacking"><option value="none">None</option><option value="drone">Drone on the key note</option><option value="chords">Chords (worked out)</option></select></label>
+            </div>
             <label class="check" title="From the intonation map (Tuner): an alternate fingering that measured clearly closer to in tune"><input type="checkbox" id="pcMyF"> Show fingerings that sit better on my horn</label>
             <div class="pop-row">
               <button id="pcResetTempo" class="link-btn">reset tempo</button>
@@ -308,6 +334,11 @@
 
     <!-- Warm-up -->
     <div class="panel" id="panel-warmup" hidden>
+      <section class="card">
+        <h2>Play-along warm-ups</h2>
+        <p class="sub tight">Long tones and lip slurs written out, played with the metronome (they open in Pieces). Today's is marked.</p>
+        <div id="wuRoutines" class="wu-routines"></div>
+      </section>
       <div class="today-row">
       <section class="card">
         <h2>Breathing</h2>
@@ -441,6 +472,35 @@
       </div>
     </div>
 
+    <!-- Recordings -->
+    <div class="panel" id="panel-player" hidden>
+      <section class="card">
+        <div class="today-head">
+          <div>
+            <h2>Play along with a recording</h2>
+            <p class="sub tight">Load a recording (MP3, M4A, WAV…), loop a passage and slow it down — the pitch stays the same, so you can keep playing along in tune. Recordings are kept in this browser.</p>
+          </div>
+          <label class="pill primary file-pill">＋ Add a recording<input type="file" id="plFile" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" hidden></label>
+        </div>
+        <div id="plList" class="pl-list"></div>
+      </section>
+      <section class="card" id="plPlayer" hidden>
+        <h2 id="plTitle"></h2>
+        <canvas id="plWave" class="pl-wave" role="img" aria-label="The recording's waveform: drag to choose a passage to loop"></canvas>
+        <p class="sub tight pl-time"><span id="plPos">0:00</span> / <span id="plDur">0:00</span> · <span id="plLoopTxt"></span></p>
+        <div class="toolbar">
+          <button id="plPlay" class="pill primary">▶ Play <kbd>Space</kbd></button>
+          <button id="plBack" class="pill ghost" title="Back 5 seconds">⟲ 5 s</button>
+          <button id="plA" class="pill ghost" title="Loop from here ([)">[ A</button>
+          <button id="plB" class="pill ghost" title="Loop to here (])">B ]</button>
+          <label class="check"><input type="checkbox" id="plLoop"> Loop A–B <kbd>L</kbd></label>
+          <label class="pill"><span>Speed</span><select id="plSpeed"><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option><option value="0.95">95%</option><option value="1">100%</option></select></label>
+          <label class="check"><input type="checkbox" id="plRamp"> 5% faster each time round</label>
+        </div>
+        <p class="hint">Drag across the waveform to pick a passage; click to jump. <kbd>[</kbd> <kbd>]</kbd> set the loop, <kbd>−</kbd> <kbd>+</kbd> the speed, <kbd>Esc</kbd> back to the start.</p>
+      </section>
+    </div>
+
     <!-- Progress -->
     <div class="panel" id="panel-progress" hidden>
       <section class="card">
@@ -459,6 +519,7 @@
         <section class="card"><h2>Personal records</h2><table id="prRecords" class="prog-table"></table></section>
         <section class="card"><h2>Tuning over time</h2><div id="prTuning"></div></section>
       </div>
+      <section class="card"><h2>Notes mastered over time</h2><div id="prNotes"></div></section>
       <section class="card"><h2>Tempo and score, piece by piece</h2><div class="staff-scroll"><table id="prTempos" class="prog-table"></table></div><p class="sub tight">Score · tempo (bpm), first run, latest and best.</p></section>
       <section class="card"><h2>Recent journal notes</h2><div id="prJournal"></div></section>
     </div>
@@ -541,6 +602,9 @@
         <label>Count-in (Pieces, Scales)
           <select id="setCountIn"><option value="1">1 bar</option><option value="2">2 bars (time to breathe)</option></select>
         </label>
+        <label>Rest between session steps
+          <select id="setSessionRest"><option value="0">None</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">1 min</option></select>
+        </label>
         <label>Rest reminder
           <select id="setRest"><option value="0">Off</option><option value="15">After 15 min of playing</option><option value="20">After 20 min</option><option value="30">After 30 min</option></select>
         </label>
@@ -612,6 +676,11 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>
+  <div id="sessionBar" class="session-bar" hidden role="status" aria-live="polite">
+    <span id="sbText"></span>
+    <button id="sbNext" class="pill">Skip ›</button>
+    <button id="sbEnd" class="pill ghost">End</button>
+  </div>
   <button id="standExit" class="stand-exit" hidden title="Leave stand mode (Esc)" aria-label="Leave stand mode">✕</button>
 
   <dialog id="importDlg">
@@ -731,6 +800,7 @@
         <li><b>Today</b> — a routine sized to the time you have (10–45 min); <kbd>Space</kbd> starts the next step. Every other day the piece is the next study from your method books.</li>
         <li><b>Warm-up</b> — breathing, mouthpiece buzzing, long tones with a shape, tonguing, lip slurs and a range builder.</li>
         <li><b>Echo</b> — hear a short phrase, play it back by ear in the next bar.</li>
+        <li><b>Recordings</b> — play along with a real recording: loop a passage and slow it down without changing the pitch.</li>
         <li><b>Progress</b> — your practice over months, records, tempo and tuning trends, and a weekly report for a teacher.</li>
         <li><b>Fingerings</b> — read a note, finger it. <b>Auto</b> moves on when you're right; <b>Timed</b> brings notes on the beat.</li>
         <li><b>Scales</b> — every major and minor, straight or in a pattern (thirds, groups of four, arpeggio), played along with the click (green on time, amber late, red wrong).</li>
@@ -743,6 +813,7 @@
       <h3>Your own music</h3>
       <p><b>＋ Add music</b> imports MusicXML/MXL (MuseScore, Sibelius, Finale, Dorico), ABC, or PDFs exported from notation software (read automatically — check it against the page). Scans: copy them in with the note palette.</p>
       <h3>Everywhere</h3>
+      <p><kbd>F</kbd> stand mode (big music, no menus, screen stays on) · a page-turner pedal's → / Page Down works like <kbd>Space</kbd>, ← / Page Up like <kbd>Esc</kbd> · <b>▶ Start session</b> on Today runs your routine step by step.</p>
       <p><kbd>H</kbd> hear the note · <kbd>+</kbd>/<kbd>−</kbd> tempo · <kbd>Esc</kbd> stop · <kbd>?</kbd> this help. If notes are marked late, use ⚙ → Timing → <b>Calibrate</b>. Progress lives in this browser — ⚙ → Back up keeps a copy.</p>
       <details class="help-box"><summary>Credits</summary>
       <p>Trumpet and trombone: Philharmonia Orchestra samples via nbrosowsky/tonejs-instruments (CC BY 3.0). Orchestral tubas: <a href="https://theremin.music.uiowa.edu/MIS.html">University of Iowa Electronic Music Studios</a> (David Spies) and Philharmonia Orchestra samples via <a href="https://github.com/nbrosowsky/tonejs-instruments">nbrosowsky/tonejs-instruments</a> (CC BY 3.0). Soundfont tubas: MusyngKite (CC BY-SA 3.0) and FluidR3 GM (CC BY 3.0) soundfonts via <a href="https://github.com/gleitz/midi-js-soundfonts">gleitz/midi-js-soundfonts</a>.</p>
@@ -768,13 +839,17 @@
   <script src="js/pieces-gen.js"></script>
   <script src="js/takes.js"></script>
   <script src="js/mode-pieces.js"></script>
+  <script src="js/pieces-library.js"></script>
   <script src="js/journal.js"></script>
   <script src="js/import.js"></script>
   <script src="js/mode-today.js"></script>
+  <script src="js/session.js"></script>
+  <script src="js/goals.js"></script>
   <script src="js/mode-tuner.js"></script>
   <script src="js/mode-intonation.js"></script>
   <script src="js/mode-warmup.js"></script>
   <script src="js/mode-echo.js"></script>
+  <script src="js/mode-player.js"></script>
   <script src="js/mode-progress.js"></script>
   <script src="js/mode-chart.js"></script>
   <script src="js/metronome.js"></script>

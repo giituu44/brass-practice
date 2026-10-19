@@ -77,11 +77,8 @@
   });
 
 
-  // Note menus shared with the Warm-up tab (long tones, tonguing) and the drone.
-  function fillNotes() {
-    for (const sel of [$('ltNote'), $('drNote'), $('tgNote')]) TP.noteMenu(sel);
-  }
-  TP.fillNoteSelects = fillNotes;
+  // The drone's note menu.
+  function fillNotes() { TP.noteMenu($('drNote')); }
 
   // ---------- drone ----------
   let drone = null;

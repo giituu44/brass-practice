@@ -18,6 +18,17 @@ TP.gen = (() => {
       cells: [{ b: 1, d: [24], w: 2 }, { b: 1, d: [12, 12], w: 2.5 }, { b: 2, d: [36, 12], w: 1.2 }, { b: 1, d: [6, 6, 6, 6], w: 1.5 },
         { b: 1, d: [12, 6, 6], w: 1.5 }, { b: 1, d: [18, 6], w: 1.5 }, { b: 2, d: [12, 24, 12], w: 0.8 },
         { b: 1, d: [8, 8, 8], w: 1, tuplet: true }, { b: 2, d: [48], w: 0.8 }, { b: 1, d: [-12, 12], w: 0.5 }] },
+    // 4 and 5: more keys, wider leaps, and notes outside the key (chrom: how often).
+    4: { keys: ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'G', 'D', 'A', 'E'], meters: [[4, 4], [3, 4], [2, 4]], tempo: 92, chrom: 0.12,
+      steps: [[1, 45], [2, 25], [3, 12], [4, 10], [5, 5], [7, 3]],
+      cells: [{ b: 1, d: [24], w: 2 }, { b: 1, d: [12, 12], w: 2.5 }, { b: 2, d: [36, 12], w: 1 }, { b: 1, d: [6, 6, 6, 6], w: 1.8 },
+        { b: 1, d: [12, 6, 6], w: 1.5 }, { b: 1, d: [6, 6, 12], w: 1.2 }, { b: 1, d: [18, 6], w: 1.8 }, { b: 2, d: [12, 24, 12], w: 1 },
+        { b: 1, d: [8, 8, 8], w: 1.2, tuplet: true }, { b: 1, d: [-12, 12], w: 0.8 }, { b: 1, d: [-6, 6, 12], w: 0.5 }, { b: 2, d: [48], w: 0.5 }] },
+    5: { keys: ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'G', 'D', 'A', 'E', 'B'], meters: [[4, 4], [3, 4], [2, 4]], tempo: 100, chrom: 0.2,
+      steps: [[1, 38], [2, 22], [3, 12], [4, 10], [5, 8], [7, 8], [6, 2]],
+      cells: [{ b: 1, d: [24], w: 1.5 }, { b: 1, d: [12, 12], w: 2 }, { b: 1, d: [6, 6, 6, 6], w: 2.2 }, { b: 1, d: [18, 6], w: 2 },
+        { b: 1, d: [6, 12, 6], w: 1.4 }, { b: 1, d: [12, 6, 6], w: 1.5 }, { b: 1, d: [8, 8, 8], w: 1.6, tuplet: true },
+        { b: 2, d: [12, 24, 12], w: 1.2 }, { b: 1, d: [-6, 6, 6, 6], w: 0.8 }, { b: 1, d: [-12, 12], w: 0.8 }, { b: 2, d: [36, 12], w: 0.8 }] },
   };
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const weighted = (arr, w) => { let r = Math.random() * arr.reduce((a, x) => a + w(x), 0); for (const x of arr) if ((r -= w(x)) <= 0) return x; return arr[arr.length - 1]; };
@@ -43,8 +54,15 @@ TP.gen = (() => {
       at = Math.max(0, Math.min(scale.length - 1, nx));
       return scale[at];
     };
-    const note = (midi, dur, tuplet) => {
-      const n = TP.spellAs(midi, letters[midi % 12]);
+    const note = (midi, dur, tuplet, free = false) => {
+      // Now and then (levels 4–5) a note a semitone off the key: sharpened going up,
+      // flattened going down, if your instrument has it.
+      let letter = letters[midi % 12];
+      if (free && L.chrom && Math.random() < L.chrom) {
+        const alt = midi + (dir > 0 ? 1 : -1);
+        if (FINGERINGS[alt] && !letters[alt % 12] && alt >= S.low && alt <= S.high) { midi = alt; }
+      }
+      const n = letters[midi % 12] ? TP.spellAs(midi, letters[midi % 12]) : TP.spellAs(midi, letter);
       return { midi, letter: n.letter, acc: n.acc, octave: n.octave, dur, tie: false, tuplet: tuplet ? { actual: 3, normal: 2 } : null };
     };
     const BARS = 8, barTicks = beats * 96 / beatType, beatT = 96 / beatType;
@@ -64,7 +82,8 @@ TP.gen = (() => {
         const c = weighted(pool, x => x.w);
         for (const d of c.d) {
           const t = Math.abs(d) * beatT / 24;
-          evs.push(d < 0 ? { midi: null, dur: t, tie: false } : note(bar === 0 && beat === 0 && !evs.length ? scale[at] : stepNext(), t, c.tuplet));
+          const first = bar === 0 && beat === 0 && !evs.length;
+          evs.push(d < 0 ? { midi: null, dur: t, tie: false } : note(first ? scale[at] : stepNext(), t, c.tuplet, !first));
         }
         beat += c.b;
       }

@@ -74,6 +74,7 @@ const TP = (() => {
     handsFree: false,     // with the mic: a short note starts the count-in
     pedal: true,          // page-turner pedal keys: → / Page Down = Space, ← / Page Up = Esc
     keepAwake: false,     // keep the screen on while the app is open (stand mode always does)
+    sessionRest: 20,      // seconds of rest between the steps of a guided session
     cbColors: false,      // colour-blind friendly grading colours
     fRead: 'concert',     // Fingerings: read in 'concert' pitch, 'band' (brass band treble clef) or 'tenor' clef
     echoLevel: 1,         // Echo: phrase difficulty 1–4
@@ -82,6 +83,8 @@ const TP = (() => {
     pieceDuet: true,      // duets: the app plays the other part
     duetPart: 1,          // …and you play part 1 or 2
     myFingerings: true,   // Pieces: show a fingering that sits better on your horn (from the intonation map)
+    pieceHints: 'off',    // Pieces: fingerings under the notes: 'off' | 'fade' (as you learn) | 'always'
+    pieceBacking: 'none', // Pieces without accompaniment: 'none' | 'drone' | 'chords'
     todayCustom: null,    // Today: your own list of steps (null = built from the time you have)
     breathPattern: '4-0-8',
     breathRounds: 6,
@@ -156,12 +159,22 @@ const TP = (() => {
   const dayKey = (d = new Date()) => d.toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
   const progressListeners = [];
   // Call on every answer or attempt: counts today's minutes (gaps over 90 s don't count).
+  // Rest reminders (Settings): brass players' lips tire. After so many minutes of
+  // playing with no real break (2+ minutes), say so — once per stretch.
+  let stretch = 0, restWarned = false;
   function activity() {
     const now = Date.now();
+    if (!stretch || !store.lastAct || now - store.lastAct > 120000) { stretch = now; restWarned = false; }
+    if (S.restAfter && !restWarned && now - stretch >= S.restAfter * 60000) {
+      restWarned = true;
+      toast(`You've been playing for ${S.restAfter} minutes without a break — rest your lips for a few minutes. (A good rule: rest about as much as you play.)`, 10000);
+    }
     const d = store.days[dayKey()] || (store.days[dayKey()] = { sec: 0, n: 0 });
     if (store.lastAct && now - store.lastAct < 90000) d.sec += (now - store.lastAct) / 1000;
     store.lastAct = now;
     d.n++;
+    // Today's snapshot, for the trend in Progress.
+    if (store.snap) store.snap[dayKey()] = notesMastered();
     save();
     progressListeners.forEach(fn => fn());
   }
@@ -172,6 +185,11 @@ const TP = (() => {
     d.done[key] = (d.done[key] || 0) + n;
     save();
     progressListeners.forEach(fn => fn());
+  }
+  // Notes you've mastered in your practice range (3+ answers, 85%+ recently).
+  function notesMastered() {
+    const range = ALL_MIDI.filter(m => m >= S.low && m <= S.high);
+    return { mastered: range.filter(m => store.notes[m] && store.notes[m].seen >= 3 && store.notes[m].ema >= 0.85).length, total: range.length };
   }
   const doneToday = key => { const d = store.days[dayKey()]; return (d && d.done && d.done[key]) || 0; };
   function progress() {
@@ -842,7 +860,7 @@ const TP = (() => {
 
   // ---------- instruments ----------
   // Practice history kept separately for each instrument.
-  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones', 'rangeRec', 'echo'];
+  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones', 'rangeRec', 'echo', 'trouble', 'pieceMiss', 'goals', 'snap'];
   let inst = null;
   function applyInstrument(id) {
     const next = INSTRUMENTS.byId[id] || INSTRUMENTS.byId['tuba-bb4'];
@@ -875,7 +893,7 @@ const TP = (() => {
     outputUntil: -1,
     S, store, save, serialize, $, ALL_MIDI, modes: {}, toast, SMOKE,
     noteMenu, myFingering, gradeNote, gradeWait, tempoControl,
-    activity, progress, onProgress: fn => progressListeners.push(fn), markDone, doneToday, dayKey,
+    activity, notesMastered, progress, onProgress: fn => progressListeners.push(fn), markDone, doneToday, dayKey,
     LETTERS, NATURAL_PC, ACC_TEXT, SHARPS, MAJOR_FIFTHS, MAJOR_STEPS,
     spell, spellAs, label, flatLabel, fmtFingering, checkFingering, tonicPc, tonicName,
     keyFifths, keySigAcc, shownAccidentals, majorLetters,

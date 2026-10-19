@@ -200,6 +200,8 @@ svg .hit:hover { fill: var(--brass-soft); fill-opacity: .5; }
 .prog-chart .bar.now { opacity: 1; }
 .prog-chart .grid { stroke: var(--line); }
 .prog-chart .axis { font-size: 10px; fill: var(--muted); }
+.prog-chart .trend { fill: none; stroke: var(--good); stroke-width: 2; }
+.prog-chart .trend-dot { fill: var(--good); }
 .prog-table { border-collapse: collapse; width: 100%; font-size: 14px; }
 .prog-table th, .prog-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 .prog-table th { font-weight: 600; color: var(--muted); white-space: nowrap; }
@@ -793,6 +795,10 @@ svg .ptrace { fill: none; stroke: var(--good); stroke-width: 1.8; stroke-linejoi
 svg .ptrace.close { stroke: var(--warn); }
 svg .ptrace.off { stroke: var(--bad); }
 svg .annot.tip { fill: var(--brass); font-weight: 600; }
+svg .annot.hint { fill: var(--muted); }
+svg .dyn { fill: var(--ink); font: italic 700 15px Georgia, serif; }
+.dyn-report i { font-family: Georgia, serif; font-weight: 700; }
+.coach { color: var(--brass); }
 svg .state-mark { fill: var(--bad); font-weight: 700; }
 svg .sc-ev.late .state-mark, svg .note.fixed .state-mark { fill: var(--warn); }
 .piece-note.mine { border-left: 3px solid var(--brass); padding-left: 10px; white-space: pre-wrap; }
@@ -1061,3 +1067,44 @@ body.stand #valvePanel.mic .valves { display: none; }
   body.stand .score-box.scroll { height: 50vh; }
   body.stand .score-box.scroll .score-line { height: 44vh; }
 }
+
+/* ---------- Today: session, setup checklist, goals ---------- */
+.td-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.td-actions .hint { margin: 0; flex: 1; min-width: 200px; }
+.setup-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.setup-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.setup-list li.done { color: var(--muted); }
+.setup-tick { width: 20px; text-align: center; font-weight: 700; color: var(--brass); }
+.setup-list li.done .setup-tick { color: var(--good); }
+.setup-text { flex: 1; min-width: 180px; }
+.goals { display: grid; gap: 12px; }
+.goal-head { display: flex; align-items: baseline; gap: 10px; }
+.goal-head b { flex: 1; }
+.goal-actions { display: flex; gap: 8px; }
+.goal.reached .bar-h span { background: var(--brass); }
+.goal-form { display: grid; gap: 8px; width: min(420px, 88vw); }
+.small-num { width: 70px; }
+.session-bar {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 50;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px);
+  padding: 8px 10px 8px 16px; border-radius: 999px; background: var(--card); border: 1px solid var(--brass);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .25); font-size: 14px;
+}
+.session-bar[hidden] { display: none; }
+#sbText { flex: 1; min-width: 0; }
+@media (max-width: 899px) { .session-bar { bottom: calc(76px + env(safe-area-inset-bottom)); border-radius: 16px; } }
+body.in-session main { padding-bottom: 96px; }
+
+/* ---------- Warm-up: play-along routines ---------- */
+.wu-routines { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.wu-routine { position: relative; display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; min-width: 170px; }
+.wu-routine span { font-size: 12.5px; color: var(--muted); }
+.wu-routine.today { border-color: var(--brass); background: var(--brass-soft); }
+.pl-list { display: grid; gap: 6px; margin-top: 8px; }
+.pl-row { display: flex; align-items: center; gap: 10px; }
+.pl-open { flex: 1; display: grid; gap: 2px; text-align: left; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.pl-open span { font-size: 12.5px; color: var(--muted); }
+.pl-row.current .pl-open { border-color: var(--brass); background: var(--brass-soft); }
+.pl-wave { display: block; width: 100%; height: 90px; border-radius: 10px; background: var(--valve); cursor: crosshair; touch-action: none; }
+.file-pill { cursor: pointer; }
+.wu-routine i { position: absolute; top: 8px; right: 10px; font-style: normal; font-size: 11px; font-weight: 700; color: var(--brass); }

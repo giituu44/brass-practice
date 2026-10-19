@@ -461,8 +461,24 @@
   $('rgDown').addEventListener('click', () => rgStart(-1));
   $('rgStop').addEventListener('click', () => rgStop('Stopped.'));
 
+  // The play-along warm-ups (the Warm-ups pieces): today's first.
+  function renderRoutines() {
+    const box = $('wuRoutines'), today = TP.todayWarmupId ? TP.todayWarmupId() : null;
+    box.textContent = '';
+    for (const p of LIBRARY.filter(x => x.cat === 'Warm-ups').sort((a, b) => (b.id === today) - (a.id === today))) {
+      const b = document.createElement('button');
+      b.className = 'wu-routine' + (p.id === today ? ' today' : '');
+      b.innerHTML = `<b></b><span></span>${p.id === today ? '<i>Today</i>' : ''}`;
+      b.querySelector('b').textContent = p.title;
+      b.querySelector('span').textContent = TP.doneToday('piece:' + p.id) ? 'played today ✓' : 'play along ›';
+      b.addEventListener('click', () => { S.pieceId = p.id; TP.show('pieces'); });
+      box.appendChild(b);
+    }
+  }
+
   function fillWarmupNotes() {
-    TP.fillNoteSelects();
+    TP.noteMenu($('ltNote'));
+    TP.noteMenu($('tgNote'));
     // Buzzing: an open note low in your range (buzzing sits low and easy).
     TP.noteMenu($('bzNote'), TP.ALL_MIDI.find(m => m >= S.low + 5 && FINGERINGS[m] && FINGERINGS[m][0] === '') || TP.ALL_MIDI[0]);
   }
@@ -471,7 +487,7 @@
   TP.modes.warmup = {
     panel: 'panel-warmup',
     valves: false,
-    enter() { fillWarmupNotes(); rgRender(); drawBuzz(null); },
+    enter() { fillWarmupNotes(); rgRender(); drawBuzz(null); renderRoutines(); },
     leave() {
       if (lt) ltFinish();
       if (tg) tgStop('');

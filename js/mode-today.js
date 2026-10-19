@@ -34,7 +34,7 @@
   // Sight-reading at the first level you haven't yet read at 80%.
   function sightLevel() {
     let l = 1;
-    while (l < 3 && store.pieces['sight-' + l] && store.pieces['sight-' + l].best >= 80) l++;
+    while (l < 5 && store.pieces['sight-' + l] && store.pieces['sight-' + l].best >= 80) l++;
     return l;
   }
   const typeName = { major: 'major', harmonic: 'harmonic minor' };
@@ -46,17 +46,17 @@
   const MINS = [10, 20, 30, 45];
   // Every kind of step, in the order a session runs; the time you pick (or your own
   // choice, "My routine") decides which ones are in today's list.
-  const ORDER = ['breathing', 'buzz', 'warmup', 'slurs', 'scale', 'scale2', 'notes', 'rhythm', 'tonguing', 'echo', 'sight', 'study', 'piece', 'review'];
+  const ORDER = ['breathing', 'buzz', 'warmup', 'slurs', 'scale', 'scale2', 'notes', 'rhythm', 'tonguing', 'echo', 'sight', 'study', 'piece', 'trouble', 'review'];
   const NAMES = {
     breathing: 'Breathing', buzz: 'Mouthpiece buzzing', warmup: 'Warm-up piece', slurs: 'Lip slurs', scale: 'Scale of the day',
     scale2: 'Its relative scale', notes: 'Note drill', rhythm: 'Rhythm reading', tonguing: 'Tonguing', echo: 'Echo (ear training)',
-    sight: 'Sight-reading', study: 'Next study from your books', piece: 'A piece', review: 'Review a piece from a while ago',
+    sight: 'Sight-reading', study: 'Next study from your books', piece: 'A piece', trouble: 'A trouble spot from last time', review: 'Review a piece from a while ago',
   };
   const BUDGET = {
     10: ['warmup', 'scale', 'notes', 'piece'],
     20: ['warmup', 'scale', 'notes', 'rhythm', 'piece'],
-    30: ['warmup', 'slurs', 'scale', 'notes', 'rhythm', 'sight', 'piece', 'review'],
-    45: ['breathing', 'warmup', 'slurs', 'scale', 'scale2', 'notes', 'rhythm', 'echo', 'sight', 'study', 'piece', 'review'],
+    30: ['warmup', 'slurs', 'scale', 'notes', 'rhythm', 'sight', 'piece', 'trouble', 'review'],
+    45: ['breathing', 'warmup', 'slurs', 'scale', 'scale2', 'notes', 'rhythm', 'echo', 'sight', 'study', 'piece', 'trouble', 'review'],
   };
   const mine = () => S.todayMins === 'mine' && Array.isArray(S.todayCustom) && S.todayCustom.length;
   // A piece or study you've played well (80%+) but not for two weeks or more: the longest ago.
@@ -100,8 +100,8 @@
         done: TP.doneToday('breathing') > 0, go: goWarmup('brStart') }),
       buzz: () => ({ id: 'buzz', icon: '💋', title: 'Mouthpiece buzzing', sub: 'Buzz a siren or a short line on the mouthpiece alone.',
         done: TP.doneToday('buzz') > 0, go: goWarmup('bzStart') }),
-      warmup: () => ({ id: 'warmup', icon: '🌬️', title: `Warm up: ${warm.title}`, sub: 'Long, steady notes and slurs to get the air going.',
-        done: TP.doneToday('warmup') > 0, go: () => { S.pieceId = warm.id; TP.show('pieces'); } }),
+      warmup: () => ({ id: 'warmup', icon: '🌬️', title: `Warm up: ${warm.title}`, sub: 'Long, steady notes and slurs to get the air going (in the Warm-up tab).',
+        done: TP.doneToday('warmup') > 0, go: goWarmup('wuRoutines') }),
       slurs: () => {
         const opts = TP.slurOptions ? TP.slurOptions() : [];
         if (!opts.length) return null;
@@ -127,9 +127,53 @@
       study: () => (study ? pieceStep(study, 'study') : null),
       piece: () => (turns && dayNo() % 2 && study ? pieceStep(study, 'study') : pieceStep(pieceOfDay(), 'piece')),
       review: () => { const r = reviewOfDay(); return r ? pieceStep(r.p, 'review') : null; },
+      // The most recent trouble spot Pieces remembered (it's forgotten once you play it clean).
+      trouble: () => {
+        const [id, t] = Object.entries(store.trouble || {}).sort((a, b) => b[1].at - a[1].at)[0] || [];
+        if (!id || (!LIBRARY.some(p => p.id === id) && !(store.myPieces || []).some(p => p.id === id))) return null;
+        return { id: 'trouble:' + id, icon: '🔧', title: `Trouble spot: ${t.title || id}, bars ${t.a + 1}–${t.b + 1}`, sub: `Loop it at ${t.bpm} bpm until it's clean, then speed up.`,
+          done: TP.doneToday('piece:' + id) > 0, go: () => { TP.pieceRequest = { id, from: t.a, to: t.b, bpm: t.bpm, loop: true }; S.pieceId = id; TP.show('pieces'); } };
+      },
     };
     return ids.map(id => make[id]()).filter(Boolean);
   }
+
+  TP.todaySteps = steps;
+  TP.todayWarmupId = () => WARMUPS[dayNo() % WARMUPS.length];
+
+  // ---------- getting set up: a checklist until everything's done (or you hide it) ----------
+  function renderSetup() {
+    const box = $('tdSetup'), inst = TP.inst(), r = store.rangeRec || {};
+    if (S.setupHidden) { box.hidden = true; return; }
+    const four = inst.kind === 'valve' && inst.valves === 4;
+    const measured = r.top !== undefined && r.bottom !== undefined;
+    const items = [
+      { done: !!S.seenHelp, text: `Instrument: ${inst.name}`, acts: [['Change', () => TP.openSettings('inst')]] },
+      { done: !!S.ranges[S.instrument], text: `Practice range: ${TP.flatLabel(S.low)}–${TP.flatLabel(S.high)} (the notes drills and sight-reading use)`,
+        acts: measured
+          ? [[`Use ${TP.flatLabel(r.bottom)}–${TP.flatLabel(r.top)} (measured)`, () => { S.low = r.bottom; S.high = r.top; S.ranges[S.instrument] = { low: r.bottom, high: r.top }; TP.save(); render(); }]]
+          : [['Find mine', goWarmup('rgUp')], ['Set it', () => TP.openSettings('inst')]] },
+      four && { done: !!S.compAsked, text: 'Are your valves compensating?', acts: [['Yes', () => setComp(true)], ['No', () => setComp(false)]] },
+      { done: !!S.micTested, text: 'Microphone: play into it instead of using the keys', acts: [['Test it', () => TP.openSettings('mic')]] },
+      { done: !!S.audioCalibrated || !!S.latencyMs, text: 'Audio delay (matters most with Bluetooth headphones)', acts: [['Calibrate', () => TP.openSettings('timing')]] },
+      S.micTested && { done: !!S.micCalibrated || !!S.micLatencyMs, text: 'Mic delay, so notes you play on time are graded on time', acts: [['Calibrate', () => TP.openSettings('mic')]] },
+    ].filter(Boolean);
+    const left = items.filter(i => !i.done).length;
+    box.hidden = !left;
+    if (!left) return;
+    box.innerHTML = `<div class="today-head"><h2>Get set up</h2><button class="link-btn" id="tdSetupHide">hide</button></div><ul class="setup-list"></ul>`;
+    const ul = box.querySelector('ul');
+    for (const it of items) {
+      const li = document.createElement('li');
+      li.className = it.done ? 'done' : '';
+      li.innerHTML = `<span class="setup-tick">${it.done ? '✓' : '○'}</span><span class="setup-text"></span>`;
+      li.querySelector('.setup-text').textContent = it.text;
+      if (!it.done) for (const [label, fn] of it.acts) { const b = document.createElement('button'); b.className = 'small-btn'; b.textContent = label; b.addEventListener('click', fn); li.appendChild(b); }
+      ul.appendChild(li);
+    }
+    $('tdSetupHide').addEventListener('click', () => { S.setupHidden = true; TP.save(); render(); });
+  }
+  function setComp(yes) { S.compensating = yes; S.compAsked = true; TP.save(); render(); TP.toast(yes ? 'Compensating: the chart and tuner won’t warn about 4th-valve combinations.' : 'Non-compensating: the chart and tuner say which combinations run sharp.', 6000); }
 
   // "My routine": tick the steps you want.
   function renderCustom() {
@@ -154,7 +198,10 @@
       : `${done} of ${list.length} done · ${p.minutes} min today · ${p.streak ? `🔥 ${p.streak}-day streak` : 'start a streak today'}`;
     $('tdMins').value = mine() ? 'mine' : String(MINS.includes(Number(S.todayMins)) ? S.todayMins : 20);
     renderCustom();
+    renderSetup();
     if (TP.renderJournal) TP.renderJournal();
+    if (TP.renderGoals) TP.renderGoals();
+    $('tdSession').textContent = TP.session && TP.session.active() ? '■ End session' : '▶ Start session';
     $('tdRing').style.setProperty('--p', done / list.length);
     $('tdRing').textContent = `${done}/${list.length}`;
 
@@ -201,8 +248,7 @@
     $('tdWeekSum').textContent = `${total} min over ${days} day${days === 1 ? '' : 's'} this week.`;
 
     // Progress on this instrument.
-    const inRange = TP.ALL_MIDI.filter(m => m >= S.low && m <= S.high);
-    const mastered = inRange.filter(m => store.notes[m] && store.notes[m].seen >= 3 && store.notes[m].ema >= 0.85).length;
+    const { mastered, total: inRangeCount } = TP.notesMastered();
     const scalesPlayed = Object.keys(store.scales).length;
     const scalesClean = Object.values(store.scales).filter(r => r.flowBest || r.best).length;
     // Pieces and method-book studies are counted separately (113 studies would swamp the rest).
@@ -215,7 +261,7 @@
     const mb = count(LIBRARY.filter(p => p.cat === 'Method books'));
     $('tdInst').textContent = TP.inst().short;
     const stats = [
-      ['Notes mastered', `${mastered} / ${inRange.length}`, mastered / Math.max(1, inRange.length)],
+      ['Notes mastered', `${mastered} / ${inRangeCount}`, mastered / Math.max(1, inRangeCount)],
       ['Scales played clean', `${scalesClean}`, Math.min(1, scalesClean / 24), `${scalesPlayed} tried`],
       ['Pieces at ★★★', `${pc.three} / ${pc.n}`, pc.three / Math.max(1, pc.n), `${pc.tried} tried`],
       ['Method-book studies at ★★★', `${mb.three} / ${mb.n}`, mb.three / Math.max(1, mb.n), `${mb.tried} tried · Kopprasch, Bordogni`],
@@ -226,6 +272,10 @@
   }
 
   TP.onProgress(() => { if (!$('panel-today').hidden) render(); });
+  $('tdSession').addEventListener('click', e => {
+    e.currentTarget.blur();
+    if (TP.session.active()) { TP.session.end(); render(); } else TP.session.start();
+  });
   $('tdMins').addEventListener('change', e => {
     e.target.blur();
     if (e.target.value === 'mine') {

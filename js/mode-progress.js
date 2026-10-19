@@ -93,6 +93,22 @@
     });
     return s + '</svg>';
   }
+  // Notes mastered, day by day (a snapshot is kept on each day you practise).
+  function notesChart() {
+    const snap = store.snap || {}, keys = Object.keys(snap).sort().slice(-90);
+    if (keys.length < 2) return '<p class="sub">Practise the note drill on a few different days and your trend shows here.</p>';
+    const W = 640, H = 130, L = 32, B = 20, total = Math.max(...keys.map(k => snap[k].total), 1);
+    const t0 = dateOf(keys[0]).getTime(), t1 = Math.max(t0 + DAY, dateOf(keys[keys.length - 1]).getTime());
+    const x = k => L + (dateOf(k).getTime() - t0) / (t1 - t0) * (W - L - 10), y = v => H - B - (v / total) * (H - B - 10);
+    let s = `<svg viewBox="0 0 ${W} ${H}" class="prog-chart" role="img" aria-label="Notes mastered over time">`;
+    for (const v of [0, Math.round(total / 2), total]) s += `<line x1="${L}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${L - 5}" y="${y(v) + 3.5}" text-anchor="end" class="axis">${v}</text>`;
+    s += `<polyline points="${keys.map(k => `${x(k)},${y(snap[k].mastered)}`).join(' ')}" class="trend"/>`;
+    for (const k of keys) s += `<circle cx="${x(k)}" cy="${y(snap[k].mastered)}" r="3" class="trend-dot"><title>${fmt(dateOf(k))}: ${snap[k].mastered} of ${snap[k].total}</title></circle>`;
+    s += `<text x="${L}" y="${H - 5}" class="axis">${fmt(dateOf(keys[0]))}</text><text x="${W - 10}" y="${H - 5}" text-anchor="end" class="axis">${fmt(dateOf(keys[keys.length - 1]))}</text>`;
+    const first = snap[keys[0]].mastered, last = snap[keys[keys.length - 1]].mastered;
+    return s + `</svg><p class="sub tight">${last} of ${snap[keys[keys.length - 1]].total} now${last !== first ? `, ${last > first ? 'up' : 'down'} from ${first} on ${fmt(dateOf(keys[0]))}` : ''}.</p>`;
+  }
+
   function render() {
     const ds = days(), total = ds.reduce((a, k) => a + store.days[k].sec, 0) / 60, st = streaks();
     $('prSummary').innerHTML = [
@@ -112,6 +128,7 @@
     const notes = Object.keys(J).sort().reverse().slice(0, 5);
     $('prJournal').innerHTML = notes.length ? notes.map(k => `<p><b>${fmt(dateOf(k), { weekday: 'short', month: 'short', day: 'numeric' })}</b> ${esc(J[k].text.trim())}</p>`).join('') : '<p class="sub">Notes you write on the Today page show here.</p>';
     $('prInst').textContent = TP.inst().short;
+    $('prNotes').innerHTML = notesChart();
   }
 
   // ---------- the weekly report ----------

@@ -302,13 +302,13 @@ M:4/4
 L:1/4
 Q:1/4=66
 K:Bb
-D, D, C, B,, | E, D, C,2 | D, F, E, D, | C,4 | F, E, D, C, | B,, C, D, E, | D, C, B,, A,, | B,,4 |]`,
+!p! D, D, C, B,, | E, D, C,2 | D, F, E, D, | C,4 | !mf! F, E, D, C, | B,, C, D, E, | !p! D, C, B,, A,, | B,,4 |]`,
     abc2: `T:Duet 1 — Chorale (part 2)
 M:4/4
 L:1/4
 Q:1/4=66
 K:Bb
-B,,, B,,, F,,, G,,, | C,, D,, F,,2 | B,,, D,, C,, B,,, | F,,,4 | D,, C,, B,,, A,,, | G,,, A,,, B,,, C,, | F,,, F,,, G,,, F,,, | B,,,4 |]`,
+!p! B,,, B,,, F,,, G,,, | C,, D,, F,,2 | B,,, D,, C,, B,,, | F,,,4 | !mf! D,, C,, B,,, A,,, | G,,, A,,, B,,, C,, | !p! F,,, F,,, G,,, F,,, | B,,,4 |]`,
   },
   {
     id: 'duet-round', cat: 'Duets', level: 1, title: 'Duet 2 — Frère Jacques (a round)', composer: 'Traditional',
@@ -355,7 +355,7 @@ M:4/4
 L:1/4
 Q:1/4=60
 K:Dm
-D,, E,, F,, D,, | D,, E,, F,, D,, | F,, G,, A,,2 | F,, G,, A,,2 | A,,/2B,,/2A,,/2G,,/2 F,, D,, | A,,/2B,,/2A,,/2G,,/2 F,, D,, | D,, A,,, D,,2 | D,, A,,, D,,2 |]`,
+!pp! D,, E,, F,, D,, | D,, E,, F,, D,, | F,, G,, A,,2 | F,, G,, A,,2 | A,,/2B,,/2A,,/2G,,/2 F,, D,, | A,,/2B,,/2A,,/2G,,/2 F,, D,, | D,, A,,, D,,2 | D,, A,,, D,,2 |]`,
   },
   {
     id: 'excerpt-dies-irae', cat: 'Excerpts', level: 1, title: 'Symphonie fantastique, mvt. 5 — Dies irae', composer: 'H. Berlioz (1830)',
@@ -366,6 +366,6 @@ M:6/8
 L:1/8
 Q:3/8=50
 K:C
-C,6 | B,,6 | C,6 | A,,6 | B,,6 | G,,6 | A,,6 | A,,6 | C,6 | C,6 | D,6 | C,6 | B,,6 | A,,6 | G,,6 | B,,6 | C,6 | B,,6 | A,,6- | A,,6 |]`,
+!f! C,6 | B,,6 | C,6 | A,,6 | B,,6 | G,,6 | A,,6 | A,,6 | !ff! C,6 | C,6 | D,6 | C,6 | B,,6 | A,,6 | G,,6 | B,,6 | C,6 | B,,6 | A,,6- | A,,6 |]`,
   },
 ];

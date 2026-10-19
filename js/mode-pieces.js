@@ -54,112 +54,7 @@
     return null;
   }
 
-  // ---------- library browser: cards by category, with your best score ----------
-  let libCat = 'All';
-  function libEntries() {
-    // Method books are listed book by book.
-    const out = LIBRARY.map(p => ({ id: p.id, title: p.title, composer: p.composer || '', level: p.level, cat: p.book || p.cat, note: p.note || '' }));
-    for (const l of [1, 2, 3]) out.push({ id: 'sight-' + l, title: `Sight-reading — level ${l}`, composer: 'New every time', level: l, cat: 'Sight-reading', note: '' });
-    for (const p of store.myPieces) out.push({ id: p.id, title: p.title, composer: p.piece.composer || '', level: 0, cat: 'My pieces', note: '' });
-    return out;
-  }
-  const starsFor = pct => (pct >= 95 ? '★★★' : pct >= 80 ? '★★☆' : pct >= 60 ? '★☆☆' : '☆☆☆');
-  function renderLibrary() {
-    // Search ignores case and accents ("etude" finds "Étude").
-    const fold = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const all = libEntries(), q = fold($('libSearch').value.trim());
-    const cats = ['All', ...new Set(all.map(e => e.cat))];
-    $('libChips').innerHTML = cats.map(c => `<button type="button" class="lib-chip${c === libCat ? ' on' : ''}" data-cat="${c}">${c}</button>`).join('');
-    const shown = all.filter(e => (libCat === 'All' || e.cat === libCat)
-      && (!q || fold(e.title + ' ' + e.composer + ' ' + e.cat).includes(q)));
-    const list = $('libList');
-    list.textContent = '';
-    let lastCat = null;
-    for (const e of shown) {
-      if (libCat === 'All' && e.cat !== lastCat) {
-        lastCat = e.cat;
-        const h = document.createElement('h3');
-        h.className = 'lib-cat';
-        h.textContent = e.cat;
-        list.appendChild(h);
-      }
-      const rec = store.pieces[e.id];
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'lib-card' + (item && item.id === e.id ? ' current' : '') + (rec ? ' tried' : '');
-      card.dataset.id = e.id;
-      card.innerHTML = `<span class="lib-title"></span><span class="lib-sub"></span>
-        <span class="lib-foot"><span class="lib-level">${e.level ? '●'.repeat(e.level) + '<i>' + '●'.repeat(3 - e.level) + '</i>' : ''}</span>
-        <span class="lib-best">${rec ? `<b>${starsFor(rec.best)}</b> ${rec.best}%` : 'not played yet'}</span></span>`;
-      card.querySelector('.lib-title').textContent = e.title;
-      card.querySelector('.lib-sub').textContent = e.composer;
-      list.appendChild(card);
-    }
-    if (!shown.length) list.innerHTML = '<p class="sub center">Nothing matches. Add your own with ＋ Add music.</p>';
-  }
-  function openLibrary() {
-    stop();
-    $('libSearch').value = '';
-    libCat = 'All';
-    renderLibrary();
-    $('libDlg').showModal();
-    const cur = $('libList').querySelector('.current');
-    if (cur) cur.scrollIntoView({ block: 'center' });
-  }
-  $('pcBrowse').addEventListener('click', e => { e.currentTarget.blur(); openLibrary(); });
-  $('libSearch').addEventListener('input', renderLibrary);
-  $('libChips').addEventListener('click', e => {
-    const b = e.target.closest('.lib-chip');
-    if (b) { libCat = b.dataset.cat; renderLibrary(); }
-  });
-  $('libList').addEventListener('click', e => {
-    const c = e.target.closest('.lib-card');
-    if (!c) return;
-    $('libDlg').close();
-    open(c.dataset.id);
-  });
-  $('libSearch').addEventListener('keydown', e => {
-    // Enter opens the first match.
-    if (e.key === 'Enter') { const c = $('libList').querySelector('.lib-card'); if (c) c.click(); }
-  });
-
-  // The pieces in the same book (or category), in order, for ‹ › stepping.
-  function siblings() {
-    if (!item || item.sight || item.slur) return [];
-    if (item.mine) return store.myPieces.map(p => p.id);
-    const lib = LIBRARY.find(p => p.id === item.id);
-    if (!lib) return [];
-    const group = p => p.book || p.cat;
-    return LIBRARY.filter(p => group(p) === group(lib)).map(p => p.id);
-  }
-  function step(d) {
-    const sib = siblings(), k = sib.indexOf(item.id) + d;
-    if (k >= 0 && k < sib.length) open(sib[k]);
-  }
-  $('pcPrev').addEventListener('click', () => step(-1));
-  $('pcNext').addEventListener('click', () => step(1));
-
   const pieceSel = $('pcPiece');
-  function fillPieceList() {
-    pieceSel.textContent = '';
-    const group = p => p.book || p.cat;
-    const cats = [...new Set(LIBRARY.map(group))];
-    for (const c of cats) {
-      const og = document.createElement('optgroup');
-      og.label = c;
-      for (const p of LIBRARY.filter(q => group(q) === c)) og.appendChild(new Option(`${p.title}${'  ' + '●'.repeat(p.level)}`, p.id));
-      pieceSel.appendChild(og);
-    }
-    const sg = document.createElement('optgroup');
-    sg.label = 'Sight-reading (new each time)';
-    for (const l of [1, 2, 3]) sg.appendChild(new Option(`Sight-reading — level ${l}  ${'●'.repeat(l)}`, 'sight-' + l));
-    pieceSel.appendChild(sg);
-    const og = document.createElement('optgroup');
-    og.label = 'My pieces';
-    if (store.myPieces.length) for (const p of store.myPieces) og.appendChild(new Option(p.title, p.id));
-    else { const o = new Option('(none yet — use Import or Write)', ''); o.disabled = true; og.appendChild(o); }
-    pieceSel.appendChild(og);
-  }
 
   // ---------- current piece ----------
   let item = null, piece = null, tl = null, view = null;
@@ -258,9 +153,10 @@
     $('pcKey').disabled = !!gen;
     $('pcAccRow').hidden = !item.acc;
     $('pcDuetRow').hidden = !item.duet;
+    $('pcBackingRow').hidden = !!(item.acc || item.duet);
     $('pcDuetPart').value = String(S.duetPart === 2 ? 2 : 1);
     partnerTl = null;
-    const sib = siblings();
+    const sib = TP.piecesLib.siblings();
     $('pcNav').hidden = sib.length < 2;
     $('pcPrev').disabled = sib.indexOf(item.id) <= 0;
     $('pcNext').disabled = sib.indexOf(item.id) >= sib.length - 1;
@@ -272,6 +168,15 @@
     const tempo = (store.pieceTempo && store.pieceTempo[item.id]) || item.piece.tempo || 100;
     setTempo(tempo, false);
     if (!keepRange) { from = 0; to = piece.measures.length - 1; }
+    // Opened from Today (a trouble spot): start on its bars, at its tempo, looping.
+    const req = TP.pieceRequest && TP.pieceRequest.id === item.id ? TP.pieceRequest : null;
+    if (req) {
+      TP.pieceRequest = null;
+      from = Math.min(req.from, piece.measures.length - 1);
+      to = Math.min(Math.max(from, req.to), piece.measures.length - 1);
+      if (req.bpm) setTempo(req.bpm, false);
+      if (req.loop) { S.pieceLoop = true; $('pcLoop').checked = true; }
+    }
     fillRange();
     for (const o of $('pcOct').options) {
       const k = Number(o.value);
@@ -289,6 +194,8 @@
   // Other parts of the app (the journal) follow which piece is open.
   const openListeners = [];
   TP.onPieceOpen = fn => openListeners.push(fn);
+  TP.openPiece = (id, keepRange) => open(id, keepRange);
+  TP.stopPiece = () => stop();
   TP.currentPiece = () => item;
 
   // ---------- history: accuracy and tempo of your runs on this piece ----------
@@ -352,6 +259,22 @@
     body.appendChild(takesBox);
   }
 
+  // The tempo coach: from your last whole run of this piece, a tempo to try now.
+  function renderCoach() {
+    const btn = $('pcCoach');
+    const runs = ((store.pieceHist && store.pieceHist[item.id]) || []).filter(r => r.whole);
+    if (!runs.length) { btn.hidden = true; return; }
+    const last = runs[runs.length - 1];
+    let bpm, why;
+    if (last.pct >= 95) { bpm = last.bpm + 4; why = `Your last run (${last.pct}% at ${last.bpm}) was clean — try a little faster.`; }
+    else if (last.pct < 80) { bpm = Math.max(30, Math.round(last.bpm * 0.9 / 2) * 2); why = `Your last run was ${last.pct}% at ${last.bpm} — slower and cleaner first.`; }
+    else { bpm = last.bpm; why = `Your last run was ${last.pct}% at ${last.bpm} — the same tempo until it's clean.`; }
+    btn.hidden = bpm === S.pieceBpm;
+    btn.textContent = `🎯 Try ${bpm}`;
+    btn.title = why;
+    btn.onclick = e => { e.currentTarget.blur(); setTempo(bpm); say(why); };
+  }
+
   function renderInfo() {
     const rec = store.pieces[item.id];
     const parts = [];
@@ -361,6 +284,7 @@
     if (rec) parts.push(`Best ${rec.best}% at ${rec.bpm} bpm`);
     $('pcMeta').textContent = parts.join(' · ');
     renderHist();
+    renderCoach();
     $('pcNote').textContent = item.note || '';
     $('pcNote').hidden = !item.note;
     // Warn if much of it can't be fingered on this tuba.
@@ -373,6 +297,14 @@
   }
 
   const scrolling = () => S.pieceView === 'scroll';
+  function hintNotes() {
+    if (S.pieceHints === 'always') return tl.notes;
+    if (S.pieceHints !== 'fade' || usingMic()) return [];
+    const runs = (store.pieceHist && store.pieceHist[item.id]) || [];
+    if (runs.length < 2) return tl.notes;
+    const missed = (store.pieceMiss && store.pieceMiss[item.id]) || [];
+    return tl.notes.filter(n => missed.includes(n.i));
+  }
   function draw() {
     const box = $('pcScore');
     document.querySelectorAll('.tune-report').forEach(e => e.remove());
@@ -393,13 +325,21 @@
     }
     // Fade notes we can't grade; show the practice range.
     for (const n of tl.notes) if (!gradable(n.midi)) for (let i = n.i; i <= n.last; i++) view.setState(i, 'oor');
+    // Fingering hints under the notes: always, or fading as you learn the piece (every
+    // note for your first two runs, then only the ones you missed last time).
+    const hinted = new Set(hintNotes().map(n => n.i));
+    for (const n of tl.notes) {
+      if (!hinted.has(n.i) || !FINGERINGS[n.midi]) continue;
+      const mine = S.myFingerings ? TP.myFingering(n.midi) : null;
+      view.annotate(n.i, TP.fmtFingering(mine !== null ? mine : FINGERINGS[n.midi][0]), mine !== null ? 'tip' : 'hint');
+    }
     // A fingering that sits better in tune on your horn (from the intonation map),
-    // written under the first such note in each bar.
+    // under the first such note in each bar.
     if (S.myFingerings) {
       const done = new Set();
       for (const n of tl.notes) {
         const f = TP.myFingering(n.midi);
-        if (f !== null && !done.has(n.m + ':' + n.midi)) { done.add(n.m + ':' + n.midi); view.annotate(n.i, TP.fmtFingering(f), 'tip'); }
+        if (f !== null && !hinted.has(n.i) && !done.has(n.m + ':' + n.midi)) { done.add(n.m + ':' + n.midi); view.annotate(n.i, TP.fmtFingering(f), 'tip'); }
       }
     }
     markRange();
@@ -484,6 +424,8 @@
     if (S.pieceLoop) bits.push(S.pieceRamp ? 'loop, speeding up' : 'loop');
     if (S.pieceGuide) bits.push('guide on');
     if (item && item.acc) bits.push(S.pieceAcc ? 'with piano' : 'no piano');
+    if (item && !item.acc && !item.duet && S.pieceBacking && S.pieceBacking !== 'none') bits.push(S.pieceBacking === 'drone' ? 'drone' : 'chords');
+    if (S.pieceHints && S.pieceHints !== 'off') bits.push(S.pieceHints === 'fade' ? 'fading hints' : 'fingerings shown');
     if (item && item.duet) bits.push(`part ${S.duetPart === 2 ? 2 : 1}` + (S.pieceDuet ? ', with partner' : ', alone'));
     if (!S.pieceClick) bits.push('no metronome');
     if (S.pieceMemo) bits.push('memorize');
@@ -532,6 +474,7 @@
       store.pieceTempo[item.id] = S.pieceBpm;
     }
     save();
+    if (item && remember) renderCoach();
   }
 
   // ---------- playing ----------
@@ -585,7 +528,7 @@
     const countBeats = perBar * (S.countIn === 2 ? 2 : 1);   // Settings: 2 bars gives time to breathe
     const t0 = ctx.currentTime + 0.3;
     const tStart = t0 + countBeats * bt * spt;
-    running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], readings: usingMic() ? [] : null };
+    running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], missed: [], readings: usingMic() ? [] : null };
     if (kind === 'play' && usingMic()) running.take = startTake({ tStart, startT: sel.startT, spt });
     TP.setSubmitLabel('Stop');
     follow(r, tStart, sel.startT, spt);
@@ -610,6 +553,10 @@
     }
     // The guide's notes come out of the speakers too: the mic would grade them as yours.
     if (mic && S.pieceGuide && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Guide + mic: use headphones, or the mic will hear the guide and count its notes as yours.', 7000); }
+    if (!item.acc && !item.duet && S.pieceBacking && S.pieceBacking !== 'none') {
+      scheduleBacking(r, sel, tStart, spt);
+      if (mic && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Backing + mic: use headphones, or the mic will hear it.', 7000); }
+    }
     if (item.partner && S.pieceDuet) {
       schedulePartner(r, sel, tStart, spt);
       if (mic && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Duet + mic: use headphones, or the mic will hear the other part.', 7000); }
@@ -634,6 +581,7 @@
         mark(n, grade === 'perfect' ? 'good' : grade);
         if (grade === 'miss') {
           running.combo = 0;
+          running.missed.push(n.i);
           // Show the right fingering under the note, like a teacher's pencil mark.
           if (FINGERINGS[n.midi]) view.annotate(n.i, TP.fmtFingering(FINGERINGS[n.midi][0]), 'miss');
           say(missText(n, played), 'bad');
@@ -734,6 +682,67 @@
     };
   }
 
+  // Backing for music without its own: a drone on the key note, or simple chords
+  // worked out from the notes (one per half bar; per bar in 2/4 and 3/4).
+  function backingKey() {
+    const name = Object.keys(TP.MAJOR_FIFTHS).find(k => TP.MAJOR_FIFTHS[k] === (piece.fifths || 0)) || 'C';
+    const major = TP.tonicPc(name);
+    // A minor-key piece usually ends on its key note: the relative minor of the signature.
+    const last = tl.notes[tl.notes.length - 1];
+    const minor = !!last && last.midi % 12 === (major + 9) % 12;
+    return { major, minor, tonic: minor ? (major + 9) % 12 : major };
+  }
+  // A soft synth drone between audio times t0 and t1 (concert midi).
+  function drone(midi, t0, t1) {
+    const ctx = TP.audio(), f = TP.hz(midi), out = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = Math.min(1200, f * 4);
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(0.08, t0 + 0.5);
+    out.gain.setValueAtTime(0.08, Math.max(t0 + 0.5, t1 - 0.5));
+    out.gain.exponentialRampToValueAtTime(0.0001, t1);
+    const oscs = [[f, 'sawtooth', 0.5], [f * 1.003, 'sawtooth', 0.4], [f * 1.5, 'sine', 0.22]].map(([fr, type, g]) => {
+      const o = ctx.createOscillator(), gn = ctx.createGain();
+      o.type = type; o.frequency.value = fr; gn.gain.value = g;
+      o.connect(gn); gn.connect(lp); o.start(t0); o.stop(t1 + 0.05);
+      return o;
+    });
+    lp.connect(out);
+    out.connect(ctx.destination);
+    return { stop() { const t = ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setTargetAtTime(0.0001, t, 0.05); oscs.forEach(o => { try { o.stop(t + 0.3); } catch (e) { /* done */ } }); } };
+  }
+  function scheduleBacking(r, sel, tStart, spt) {
+    const k = backingKey(), tr = TP.inst().transpose;
+    // Written pitch class -> a concert note from C3 up.
+    const low = pc => 48 + ((pc - tr) % 12 + 12) % 12;
+    if (S.pieceBacking === 'drone') {
+      r.add(drone(low(k.tonic), tStart, tStart + (sel.endT - sel.startT) * spt));
+      return;
+    }
+    // The key's six triads (and, in minor, the major chord on its fifth).
+    const chords = [[0, 4, 7], [2, 5, 9], [4, 7, 11], [5, 9, 0], [7, 11, 2], [9, 0, 4]].map(c => c.map(x => (x + k.major) % 12));
+    if (k.minor) chords.push([4, 8, 11].map(x => (x + k.major) % 12));
+    const home = chords[k.minor ? 5 : 0];
+    const barT = piece.beats * 96 / piece.beatType, span = piece.beats >= 4 ? barT / 2 : barT;
+    for (let t = sel.startT; t < sel.endT; t += span) {
+      const w = new Array(12).fill(0);
+      for (const n of tl.notes) {
+        const s0 = Math.max(n.start, t), s1 = Math.min(n.start + n.dur, t + span);
+        if (s1 > s0) w[n.midi % 12] += s1 - s0;
+      }
+      if (!w.some(Boolean)) continue;
+      // The chord whose notes the melody uses most here (the home chord wins a tie).
+      let best = home, bestScore = -Infinity;
+      for (const c of chords) {
+        const score = c.reduce((a, pc) => a + w[pc], 0) - 0.5 * w.reduce((a, x, pc) => a + (c.includes(pc) ? 0 : x), 0) + (c === home ? 0.1 * span : 0);
+        if (score > bestScore) { bestScore = score; best = c; }
+      }
+      const root = low(best[0]);
+      const at = tStart + (t - sel.startT) * spt, len = Math.min(span, sel.endT - t) * spt * 0.95;
+      for (const pc of best) { let m = low(pc); while (m < root) m += 12; r.piano(m, len, at, 0.5); }
+    }
+  }
+
   // Duets: the other part, on your instrument's sound (concert pitch, following any key change).
   let partnerTl = null;
   function schedulePartner(r, sel, tStart, spt) {
@@ -794,6 +803,11 @@
     save();
     if (item.cat === 'Warm-ups') TP.markDone('warmup');
     if (item.sight) TP.markDone('sight');
+    // The notes you missed (fading fingering hints come back on just those), and the
+    // trouble spot, kept until you play it clean (Today brings it back).
+    store.pieceMiss = store.pieceMiss || {};
+    store.pieceMiss[item.id] = running ? running.missed.slice() : [];
+    const spot = running ? rememberTrouble(running.bars, pct) : null;
     // Personal bests only count for the whole piece.
     let best = false;
     if (whole) {
@@ -814,8 +828,7 @@
       running.r.at(TP.audio().currentTime + 2, () => start(kind));
       return;
     }
-    const spot = pct < 95 ? troubleSpot(running.bars) : null;
-    const tune = running.tune;
+    const tune = running.tune, done = running;
     drawTraces(running);
     running = null;
     TP.setSubmitLabel('Start');
@@ -823,6 +836,48 @@
     if (spot) offerSpot(spot);
     else if (pct >= 80) offerNext();
     if (tune.length >= 3) tuningReport(tune);
+    dynamicsReport(done);
+  }
+  function rememberTrouble(bars, pct) {
+    store.trouble = store.trouble || {};
+    const old = store.trouble[item.id];
+    if (old && from <= old.a && to >= old.b) {
+      let clean = true;
+      for (let m = old.a; m <= old.b; m++) if (!bars[m] || bars[m].bad > 0) clean = false;
+      if (clean) delete store.trouble[item.id];
+    }
+    const spot = pct < 95 ? troubleSpot(bars) : null;
+    if (spot) store.trouble[item.id] = { a: spot.a, b: spot.b, bpm: Math.max(40, Math.round(S.pieceBpm * 0.85)), at: Date.now(), title: item.title };
+    save();
+    return spot;
+  }
+  // With the mic, when the music has dynamics (p, mf, f…): how much louder the loud
+  // marks were than the soft ones (median loudness of each note, grouped by marking).
+  const DYN = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'];
+  function dynamicsReport(run) {
+    if (!run || !run.readings || !run.traces.length) return;
+    const markAt = [];
+    let cur = null;
+    for (const e of tl.events) { if (e.dyn) cur = e.dyn; markAt[e.i] = cur; }
+    const levels = {};
+    for (const { n, t, dur } of run.traces) {
+      const d = markAt[n.i];
+      if (!d) continue;
+      const rms = run.readings.filter(x => x.t >= t + 0.05 && x.t <= t + dur * 0.85 && x.midi !== null).map(x => x.rms).sort((a, b) => a - b);
+      if (rms.length < 2) continue;
+      (levels[d] = levels[d] || []).push(20 * Math.log10(rms[rms.length >> 1]));
+    }
+    const used = DYN.filter(d => levels[d] && levels[d].length >= 2);
+    if (used.length < 2) return;
+    const avg = d => levels[d].reduce((a, b) => a + b, 0) / levels[d].length;
+    const lo = used[0], hi = used[used.length - 1], span = Math.round(avg(hi) - avg(lo));
+    const box = document.createElement('div');
+    box.className = 'tune-report dyn-report';
+    box.innerHTML = `<b>Dynamics</b> · ` + used.map(d => `<i>${d}</i> ${d === lo ? '0' : (avg(d) >= avg(lo) ? '+' : '') + Math.round(avg(d) - avg(lo))} dB`).join(' · ') + '<br>'
+      + (span >= 10 ? `Your <i>${hi}</i> was ${span} dB above your <i>${lo}</i> — a real contrast.`
+        : span >= 5 ? `<i>${hi}</i> was ${span} dB above <i>${lo}</i>: some contrast — aim for 10 dB or more.`
+          : `<i>${hi}</i> was only ${Math.max(0, span)} dB above <i>${lo}</i> — make the soft softer and the loud louder.`);
+    $('pcFeedback').after(box);
   }
   // After a mic run: which notes sat sharp or flat, marked on the music and summed up.
   function tuningReport(tune) {
@@ -869,7 +924,7 @@
   function offerNext() {
     const lib = LIBRARY.find(p => p.id === item.id);
     if (!lib || !lib.book) return;
-    const sib = siblings(), nextId = sib[sib.indexOf(item.id) + 1];
+    const sib = TP.piecesLib.siblings(), nextId = sib[sib.indexOf(item.id) + 1];
     if (!nextId) return;
     const btn = document.createElement('button');
     btn.className = 'pill spot-btn';
@@ -1000,6 +1055,8 @@
   $('pcWhole').addEventListener('click', () => { from = 0; to = piece.measures.length - 1; fillRange(); markRange(); });
   $('pcDuetPart').addEventListener('change', e => { e.target.blur(); S.duetPart = Number(e.target.value); save(); open(item.id, true); });
   $('pcMyF').addEventListener('change', e => { e.target.blur(); S.myFingerings = e.target.checked; save(); if (!running) draw(); });
+  $('pcHints').addEventListener('change', e => { e.target.blur(); S.pieceHints = e.target.value; save(); optionsSummary(); if (!running) draw(); });
+  $('pcBacking').addEventListener('change', e => { e.target.blur(); S.pieceBacking = e.target.value; save(); optionsSummary(); });
   for (const [id, key] of [['pcClick', 'pieceClick'], ['pcGuide', 'pieceGuide'], ['pcLoop', 'pieceLoop'], ['pcRamp', 'pieceRamp'], ['pcAcc', 'pieceAcc'], ['pcMemo', 'pieceMemo'], ['pcDuet', 'pieceDuet']]) {
     $(id).addEventListener('change', e => { e.target.blur(); S[key] = e.target.checked; save(); optionsSummary(); $('pcScore').classList.toggle('memorize', S.pieceMemo); });
   }
@@ -1023,7 +1080,7 @@
     if (!item.mine || !confirm(`Delete “${item.title}” from your pieces?`)) return;
     store.myPieces = store.myPieces.filter(p => p.id !== item.id);
     save();
-    fillPieceList();
+    TP.piecesLib.fillPieceList();
     open(LIBRARY[0].id);
   });
   $('pcEdit').addEventListener('click', () => TP.openImport({ abc: item.abc, id: item.mine ? item.id : null, title: item.mine ? item.title : item.title + ' (my copy)' }));
@@ -1037,13 +1094,13 @@
   });
 
   // Called by the import dialog after saving.
-  TP.piecesChanged = id => { fillPieceList(); if (id) open(id); };
+  TP.piecesChanged = id => { TP.piecesLib.fillPieceList(); if (id) open(id); };
 
   TP.modes.pieces = {
     panel: 'panel-pieces',
     valves: true,
     enter() {
-      fillPieceList();
+      TP.piecesLib.fillPieceList();
       $('pcMode').value = S.pieceMode;
       $('pcView').value = S.pieceView;
       $('pcClick').checked = S.pieceClick;
@@ -1054,6 +1111,8 @@
       $('pcMemo').checked = S.pieceMemo;
       $('pcDuet').checked = S.pieceDuet;
       $('pcMyF').checked = S.myFingerings;
+      $('pcHints').value = S.pieceHints || 'off';
+      $('pcBacking').value = S.pieceBacking || 'none';
       open(S.pieceId || LIBRARY[0].id, item && item.id === S.pieceId);
     },
     leave() { stop(); },
@@ -1069,8 +1128,8 @@
       if (k === 'escape') { stop(); draw(); idle(); return true; }
       if (k === 'h') { this.hear(); return true; }
       if (k === 'p' && lastTake && !running) { replay(); return true; }
-      if (k === 'b' && !running) { openLibrary(); return true; }
-      if ((k === '[' || k === ']') && !running) { step(k === ']' ? 1 : -1); return true; }
+      if (k === 'b' && !running) { TP.piecesLib.openLibrary(); return true; }
+      if ((k === '[' || k === ']') && !running) { TP.piecesLib.step(k === ']' ? 1 : -1); return true; }
       if (k === 'n' && item && item.sight && !running) { $('pcNew').click(); return true; }
       if (k === '+' || k === '=') { setTempo(S.pieceBpm + 4); return true; }
       if (k === '-') { setTempo(S.pieceBpm - 4); return true; }

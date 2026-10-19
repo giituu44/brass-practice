@@ -152,6 +152,7 @@
     $('setInstrument').value = S.instrument;
     $('setComp').checked = !!S.compensating;
     $('setCountIn').value = String(S.countIn || 1);
+    $('setSessionRest').value = String(S.sessionRest === undefined ? 20 : S.sessionRest);
     $('setRest').value = String(S.restAfter === undefined ? 20 : S.restAfter);
     $('setHandsFree').checked = !!S.handsFree;
     $('setPedal').checked = S.pedal !== false;
@@ -225,6 +226,7 @@
       offs.sort((a, b) => a - b);
       const ms = Math.max(-100, Math.min(400, Math.round(offs[offs.length >> 1] * 100) * 10));
       S.latencyMs = ms;
+      S.audioCalibrated = true;
       $('setLatency').value = ms;
       save();
       $('calMsg').textContent = `Done — offset set to ${ms} ms.` + (ms > 80 ? ' (Bluetooth headphones? Wired ones are much tighter.)' : '');
@@ -249,6 +251,7 @@
   const dB = rms => Math.max(0, Math.min(1, (20 * Math.log10(Math.max(rms, 1e-6)) + 66) / 60));
   TP.mic.on(r => {
     if (!dlg.open) return;
+    if (r.midi !== null && !S.micTested) { S.micTested = true; save(); }
     const playing = r.rms >= TP.mic.gate();
     $('micMeter').style.width = dB(r.rms) * 100 + '%';
     $('micMeter').classList.toggle('quiet', !playing);
@@ -304,6 +307,7 @@
       offs.sort((a, b) => a - b);
       const ms = Math.max(-100, Math.min(400, (S.micLatencyMs || 0) + Math.round(offs[offs.length >> 1] * 200) * 5));
       S.micLatencyMs = ms;
+      S.micCalibrated = true;
       $('setMicLatency').value = ms;
       save();
       $('micCalMsg').textContent = `Done — mic delay set to ${ms} ms (from ${offs.length} notes).`;
@@ -367,6 +371,7 @@
       micAnyOctave: $('setAnyOctave').checked,
       compensating: $('setComp').checked,
       countIn: Number($('setCountIn').value),
+      sessionRest: Number($('setSessionRest').value),
       restAfter: Number($('setRest').value),
       handsFree: $('setHandsFree').checked,
       pedal: $('setPedal').checked,
@@ -474,6 +479,7 @@
   TP.mic.on(r => {
     if (S.input !== 'mic') return;
     if (r.midi === null) { $('micLive').textContent = '…'; return; }
+    if (!S.micTested) { S.micTested = true; save(); }
     const n = TP.spell(r.midi, 'flats');
     $('micLive').textContent = TP.label(n) + (Math.abs(r.cents) > 15 ? (r.cents > 0 ? ' ↑' : ' ↓') : '');
   });

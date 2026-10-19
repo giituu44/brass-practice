@@ -104,7 +104,7 @@ TP.score = (() => {
     const measures = [];
     let cur = { events: [] }, carry = new Map();
     let nextFlags = {};
-    let tuplet = null, broken = 1, last = null;
+    let tuplet = null, broken = 1, last = null, dyn = null;
 
     const pushMeasure = () => {
       if (cur.events.length) measures.push(cur);
@@ -128,6 +128,7 @@ TP.score = (() => {
         if (--tuplet.left <= 0) tuplet = null;
       }
       ev.dur = Math.max(1, Math.round(ev.dur));
+      if (dyn && ev.midi !== null) { ev.dyn = dyn; dyn = null; }
       cur.events.push(ev);
       last = ev;
     };
@@ -162,8 +163,10 @@ TP.score = (() => {
       if (c === '"') { const j = s.indexOf('"', i + 1); i = j < 0 ? s.length : j + 1; continue; }
       if (c === '!' || c === '+') {
         const j = s.indexOf(c, i + 1);
-        // !breath! right after a note: breathe after that note.
-        if (j > i && s.slice(i + 1, j) === 'breath' && last) last.breath = true;
+        // !breath! right after a note: breathe after that note. !p! !mf! !ff!…: dynamics.
+        const deco = j > i ? s.slice(i + 1, j) : '';
+        if (deco === 'breath' && last) last.breath = true;
+        if (/^(ppp|pp|p|mp|mf|f|ff|fff)$/.test(deco)) dyn = deco;
         i = j < 0 ? s.length : j + 1;
         continue;
       }
@@ -304,7 +307,7 @@ TP.score = (() => {
     const title = txt(doc, 'work > work-title') || txt(doc, 'movement-title') || 'Imported score';
     const composer = txt(doc, 'identification > creator[type="composer"]');
 
-    let divisions = 1, fifths = null, beats = null, beatType = null, tempo = null;
+    let divisions = 1, fifths = null, beats = null, beatType = null, tempo = null, dynamic = null;
     let firstFifths = null, firstBeats = null, firstBeatType = null;
     let transChrom = 0, transDia = 0, voice = null;
     const measures = [];
@@ -325,6 +328,8 @@ TP.score = (() => {
             transDia = Number(txt(ch, 'transpose > diatonic') || 0) + 7 * Number(txt(ch, 'transpose > octave-change') || 0);
           }
         } else if (name === 'direction' || name === 'sound') {
+          const dm = name === 'direction' ? ch.querySelector('direction-type > dynamics > *') : null;
+          if (dm && /^(ppp|pp|p|mp|mf|f|ff|fff)$/.test(dm.tagName)) dynamic = dm.tagName;
           const snd = name === 'sound' ? ch : ch.querySelector('sound');
           if (tempo === null && snd && snd.getAttribute('tempo')) tempo = Math.round(Number(snd.getAttribute('tempo')));
           if (tempo === null && txt(ch, 'metronome > per-minute')) {
@@ -359,7 +364,9 @@ TP.score = (() => {
             note = TP.spellAs(midi, TP.LETTERS[li]);
           }
           const tie = !!ch.querySelector('tie[type="start"]');
-          events.push({ midi: note.midi, letter: note.letter, acc: note.acc, octave: note.octave, dur, tie, tuplet });
+          const ev = { midi: note.midi, letter: note.letter, acc: note.acc, octave: note.octave, dur, tie, tuplet };
+          if (dynamic) { ev.dyn = dynamic; dynamic = null; }
+          events.push(ev);
         }
       }
       measures.push(events);
@@ -613,6 +620,8 @@ TP.score = (() => {
         g.appendChild(el('ellipse', { cx: x, cy: y, rx: 6.4, ry: 4.6, transform: `rotate(-20 ${x} ${y})`, class: open ? 'head open' : 'head' }));
       }
       if (sg.dots) g.appendChild(el('circle', { cx: x + 10, cy: step % 2 === 0 ? y - 4 : y, r: 1.8, class: 'dot' }));
+      // A dynamic marking (p, mf, f…) under the staff.
+      if (sg.first && sg.e.dyn) g.appendChild(el('text', { x: x - 4, y: bottom - 20, 'font-size': 15, class: 'dyn' }, sg.e.dyn));
     }
 
     function drawStemsAndBeams(svg, placed, beatLen) {
@@ -716,6 +725,7 @@ TP.score = (() => {
       return { svg: a.svg, x: a.x + (b.x - a.x) * ((t - a.t) / (b.t - a.t)) };
     }
     let headOn = null;
+    const annots = new Map();
 
     let current = null;
     return {
@@ -740,7 +750,11 @@ TP.score = (() => {
       annotate(ev, text, cls = '') {
         const at = evX.get(ev);
         if (!at) return;
-        at.svg.appendChild(el('text', { x: at.x, y: bottom - 6, 'font-size': 12, 'text-anchor': 'middle', class: 'annot ' + cls }, text));
+        // One note, one annotation: the newest (a miss's fingering replaces a hint).
+        if (annots.has(ev)) annots.get(ev).remove();
+        const t = el('text', { x: at.x, y: bottom - 6, 'font-size': 12, 'text-anchor': 'middle', class: 'annot ' + cls }, text);
+        annots.set(ev, t);
+        at.svg.appendChild(t);
       },
       setState(ev, state) {
         for (const g of evEls.get(ev) || []) {
@@ -810,7 +824,7 @@ TP.score = (() => {
         let name = e.octave >= 5 ? e.letter.toLowerCase() : e.letter;
         if (e.octave > 5) name += "'".repeat(e.octave - 5);
         if (e.octave < 4) name += ','.repeat(4 - e.octave);
-        return acc + name + len(e.dur) + (e.tie ? '-' : '');
+        return (e.dyn ? `!${e.dyn}! ` : '') + acc + name + len(e.dur) + (e.tie ? '-' : '');
       }).join(' ');
     });
     let body = '';

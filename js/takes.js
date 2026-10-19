@@ -4,6 +4,7 @@
 // aren't kept and ⬇ Save still works.
 TP.takes = (() => {
   'use strict';
+  // Version 2 added a second store, 'recordings' (the Recordings tab's play-along files).
   const NAME = 'brass-practice-takes', STORE = 'takes', KEEP = 12;   // newest takes kept per piece
   let opening = null;
   function db() {
@@ -11,8 +12,12 @@ TP.takes = (() => {
       opening = new Promise((resolve, reject) => {
         if (!window.indexedDB) { reject(new Error('IndexedDB is not available')); return; }
         let req;
-        try { req = indexedDB.open(NAME, 1); } catch (e) { reject(e); return; }
-        req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true }).createIndex('piece', 'piece');
+        try { req = indexedDB.open(NAME, 2); } catch (e) { reject(e); return; }
+        req.onupgradeneeded = () => {
+          const d = req.result;
+          if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true }).createIndex('piece', 'piece');
+          if (!d.objectStoreNames.contains('recordings')) d.createObjectStore('recordings', { keyPath: 'id', autoIncrement: true });
+        };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
         setTimeout(() => reject(new Error('IndexedDB did not open')), 5000);
@@ -22,10 +27,10 @@ TP.takes = (() => {
     return opening;
   }
   // Run fn(store) in a transaction; resolves with what fn's request returned.
-  function run(mode, fn) {
+  function run(mode, fn, name = STORE) {
     return db().then(d => new Promise((resolve, reject) => {
-      const tx = d.transaction(STORE, mode);
-      const req = fn(tx.objectStore(STORE));
+      const tx = d.transaction(name, mode);
+      const req = fn(tx.objectStore(name));
       tx.oncomplete = () => resolve(req ? req.result : undefined);
       tx.onerror = () => reject(tx.error);
     }));
@@ -84,5 +89,13 @@ TP.takes = (() => {
     return all.length;
   }
 
-  return { add, list, remove, render, available: () => db().then(() => true, () => false) };
+  // The Recordings tab's files: { id, name, type, blob, added, a, b, speed }.
+  const recordings = {
+    list: () => run('readonly', s => s.getAll(), 'recordings').then(all => all.sort((x, y) => y.added - x.added)),
+    add: rec => run('readwrite', s => s.add(rec), 'recordings'),
+    put: rec => run('readwrite', s => s.put(rec), 'recordings'),
+    remove: id => run('readwrite', s => s.delete(id), 'recordings'),
+  };
+
+  return { add, list, remove, render, recordings, available: () => db().then(() => true, () => false) };
 })();

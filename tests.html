@@ -214,10 +214,56 @@
     check('A real semitone up is read as the next note', rs2.filter(r => r.t > 0.75 && r.midi !== null).every(r => r.midi === 47));
   }
 
-  const s = document.getElementById('summary');
-  s.textContent = fail ? `${fail} failed, ${pass} passed` : `All ${pass} passed`;
-  s.className = fail ? 'fail' : 'ok';
-  document.title = fail ? `✗ ${fail} failed` : `✓ ${pass} passed`;
+  function summary() {
+    const s = document.getElementById('summary');
+    s.textContent = fail ? `${fail} failed, ${pass} passed` : `All ${pass} passed`;
+    s.className = fail ? 'fail' : 'ok';
+    document.title = fail ? `✗ ${fail} failed` : `✓ ${pass} passed`;
+  }
+
+  // ---------- the app itself: open every tab, watch for errors ----------
+  // Loads index.html?smoke in a frame (smoke mode never saves). Browsers keep pages
+  // opened from disk apart, so this needs a local server or tools/check.ps1.
+  section('App smoke test');
+  summary();
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'width:1000px;height:700px;position:absolute;left:-2000px;top:0';
+  frame.src = 'index.html?smoke';
+  const smokeTimer = setTimeout(() => { check('The app loads', false, 'it didn’t finish loading in 15 s'); summary(); }, 15000);
+  frame.onload = () => setTimeout(() => {
+    clearTimeout(smokeTimer);
+    // TP is a top-level const in the app, not a window property: read it in the frame.
+    let w, F;
+    try { w = frame.contentWindow; F = w.eval('TP'); void F.modes; } catch (e) {
+      group.insertAdjacentHTML('beforeend', '<div class="t"><small>Skipped: this browser keeps pages opened from disk apart. Run tools/check.ps1, or open the tests through a local server.</small></div>');
+      return;
+    }
+    const errors = [], toasts = [];
+    w.addEventListener('error', e => errors.push(e.message));
+    const realToast = F.toast;
+    F.toast = (m, ms) => { toasts.push(m); realToast(m, ms); };
+    w.document.querySelectorAll('dialog[open]').forEach(d => d.close());
+    const tabs = [...w.document.querySelectorAll('.tab[data-tab]')].map(b => b.dataset.tab);
+    check(`The app loads with ${tabs.length} tabs`, tabs.length >= 10 && !!F.SMOKE);
+    for (const t of tabs) {
+      const before = errors.length + toasts.filter(m => /went wrong/.test(m)).length;
+      try { F.show(t); } catch (e) { errors.push(e.message); }
+      const bad = errors.slice(before).concat(toasts.filter(m => /went wrong/.test(m)).slice(0));
+      check(`Tab opens without errors: ${t}`, F.modes[t] && w.document.getElementById(F.modes[t].panel).hidden === false && errors.length + toasts.filter(m => /went wrong/.test(m)).length === before, bad.slice(-1).join(''));
+    }
+    // Settings and stand mode open and close.
+    try {
+      F.openSettings('mic');
+      check('Settings opens on a section', w.document.getElementById('settings').open && !w.document.querySelector('.set-sec[data-sec="mic"]').hidden);
+      w.document.getElementById('settings').close();
+      F.standMode.set(true);
+      check('Stand mode hides the menus', w.document.body.classList.contains('stand'));
+      F.standMode.set(false);
+    } catch (e) { check('Settings and stand mode', false, e.message); }
+    check('No errors anywhere', !errors.length, errors.slice(0, 3).join(' · '));
+    summary();
+  }, 600);
+  document.body.appendChild(frame);
 })();
 </script>
 </body>
