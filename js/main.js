@@ -43,6 +43,10 @@
   // Keyboard: J K L ; are valves (held like real ones); everything else goes to the mode.
   document.addEventListener('keydown', e => {
     if (document.querySelector('dialog[open]') || e.ctrlKey || e.metaKey || e.altKey) return;
+    // Typing in a text box (the journal) is just typing; and Space or Enter on a button
+    // or menu you've tabbed to works it, rather than starting the exercise.
+    if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
+    if ((e.key === ' ' || e.key === 'Enter') && e.target.closest && e.target.closest('button, select, summary, a, label')) return;
     const k = e.key.toLowerCase();
     if (k === '?') { e.preventDefault(); openHelp(); return; }
     if (active.valves && TP.VALVE_KEYS[k]) {

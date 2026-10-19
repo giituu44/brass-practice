@@ -776,6 +776,21 @@ svg .annot.flat { fill: #6fa8ef; }
 .rg-target { display: flex; align-items: baseline; gap: 12px; justify-content: center; margin: 8px 0 2px; }
 .rg-target b { font-size: 34px; font-family: Georgia, serif; }
 .rg-target span { color: var(--muted); font-size: 15px; }
+svg .ptrace { fill: none; stroke: var(--good); stroke-width: 1.8; stroke-linejoin: round; opacity: .9; }
+svg .ptrace.close { stroke: var(--warn); }
+svg .ptrace.off { stroke: var(--bad); }
+svg .annot.tip { fill: var(--brass); font-weight: 600; }
+svg .state-mark { fill: var(--bad); font-weight: 700; }
+svg .sc-ev.late .state-mark, svg .note.fixed .state-mark { fill: var(--warn); }
+.piece-note.mine { border-left: 3px solid var(--brass); padding-left: 10px; white-space: pre-wrap; }
+.takes { margin-top: 10px; }
+.take-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
+.take-row span { flex: 1; }
+.take-play { min-width: 34px; justify-content: center; }
+#pcJournal .pop-body { width: min(360px, 86vw); }
+#pcJournalText, #tdJournal { width: 100%; resize: vertical; font: inherit; }
+.journal-prev { margin-top: 6px; white-space: pre-wrap; }
+.journal-prev::before { content: 'Last time · '; font-weight: 600; }
 .echo-box { min-height: 120px; display: grid; align-items: center; }
 .echo-hidden { display: flex; gap: 18px; justify-content: center; }
 .echo-hidden span { width: 44px; height: 56px; border-radius: 10px; background: var(--valve); display: grid; place-items: center; font: 700 26px Georgia, serif; color: var(--muted); }

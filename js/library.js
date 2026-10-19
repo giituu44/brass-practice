@@ -293,4 +293,79 @@ K:Bm
 B,,,C,,D,,E,, F,,D,,F,,2 | ^E,,^C,,^E,,2 =E,,=C,,E,,2 | B,,,C,,D,,E,, F,,D,,F,,B,, | A,,F,,D,,F,, A,,4 |
 B,,,C,,D,,E,, F,,D,,F,,2 | ^E,,^C,,^E,,2 =E,,=C,,E,,2 | B,,,C,,D,,E,, F,,D,,F,,B,, | A,,F,,D,,F,, B,,4 |]`,
   },
+  // ---------- Duets: you play one part, the app plays the other ----------
+  {
+    id: 'duet-chorale', cat: 'Duets', level: 1, title: 'Duet 1 — Chorale',
+    note: 'Two tubas in thirds and tenths. Listen down to the other part and tune your chords to it.',
+    abc: `T:Duet 1 — Chorale (part 1)
+M:4/4
+L:1/4
+Q:1/4=66
+K:Bb
+D, D, C, B,, | E, D, C,2 | D, F, E, D, | C,4 | F, E, D, C, | B,, C, D, E, | D, C, B,, A,, | B,,4 |]`,
+    abc2: `T:Duet 1 — Chorale (part 2)
+M:4/4
+L:1/4
+Q:1/4=66
+K:Bb
+B,,, B,,, F,,, G,,, | C,, D,, F,,2 | B,,, D,, C,, B,,, | F,,,4 | D,, C,, B,,, A,,, | G,,, A,,, B,,, C,, | F,,, F,,, G,,, F,,, | B,,,4 |]`,
+  },
+  {
+    id: 'duet-round', cat: 'Duets', level: 1, title: 'Duet 2 — Frère Jacques (a round)', composer: 'Traditional',
+    note: 'A round: part 2 comes in two bars later, an octave down. Keep your own line steady while the other one starts.',
+    abc: `T:Frère Jacques (part 1)
+C:Traditional
+M:4/4
+L:1/4
+Q:1/4=84
+K:F
+F,, G,, A,, F,, | F,, G,, A,, F,, | A,, B,, C,2 | A,, B,, C,2 | C,/2D,/2C,/2B,,/2 A,, F,, | C,/2D,/2C,/2B,,/2 A,, F,, | F,, C,, F,,2 | F,, C,, F,,2 | F,, G,, A,, F,, | F,,4 |]`,
+    abc2: `T:Frère Jacques (part 2)
+C:Traditional
+M:4/4
+L:1/4
+Q:1/4=84
+K:F
+z4 | z4 | F,,, G,,, A,,, F,,, | F,,, G,,, A,,, F,,, | A,,, B,,, C,,2 | A,,, B,,, C,,2 | C,,/2D,,/2C,,/2B,,,/2 A,,, F,,, | C,,/2D,,/2C,,/2B,,,/2 A,,, F,,, | F,,, C,,, F,,,2 | F,,, C,,, F,,,2 |]`,
+  },
+  {
+    id: 'duet-ode', cat: 'Duets', level: 2, title: 'Duet 3 — Ode to Joy', composer: 'L. van Beethoven (melody)',
+    note: 'Part 1 has the tune; part 2 is a bass line under it. Try both — the bass line is where a tuba lives.',
+    abc: `T:Ode to Joy (part 1)
+C:L. van Beethoven
+M:4/4
+L:1/4
+Q:1/4=96
+K:Bb
+D, D, E, F, | F, E, D, C, | B,, B,, C, D, | D,3/2 C,/2 C,2 | D, D, E, F, | F, E, D, C, | B,, B,, C, D, | C,3/2 B,,/2 B,,2 |]`,
+    abc2: `T:Ode to Joy (part 2)
+M:4/4
+L:1/4
+Q:1/4=96
+K:Bb
+B,,,2 D,,2 | B,,,2 F,,,2 | B,,,2 G,,,2 | F,,,4 | B,,,2 D,,2 | B,,,2 F,,,2 | G,,,2 F,,,2 | F,,,2 B,,,2 |]`,
+  },
+  // ---------- Excerpts: famous tuba moments from public-domain music ----------
+  {
+    id: 'excerpt-mahler1', cat: 'Excerpts', level: 2, title: 'Mahler 1, mvt. 3 — the “Bruder Martin” canon', composer: 'G. Mahler (1888)',
+    note: 'The minor-key Frère Jacques the tuba takes up in the canon. Very soft, very even, never rushed. Written from the melody — check the rhythm and dynamics against a real part.',
+    abc: `T:Mahler 1, mvt. 3 — canon
+C:G. Mahler
+M:4/4
+L:1/4
+Q:1/4=60
+K:Dm
+D,, E,, F,, D,, | D,, E,, F,, D,, | F,, G,, A,,2 | F,, G,, A,,2 | A,,/2B,,/2A,,/2G,,/2 F,, D,, | A,,/2B,,/2A,,/2G,,/2 F,, D,, | D,, A,,, D,,2 | D,, A,,, D,,2 |]`,
+  },
+  {
+    id: 'excerpt-dies-irae', cat: 'Excerpts', level: 1, title: 'Symphonie fantastique, mvt. 5 — Dies irae', composer: 'H. Berlioz (1830)',
+    note: 'The plainchant Berlioz gives the tubas and ophicleides: one long, heavy note a bar. Full, dark sound; no gaps between notes. Written from the chant — check it against a real part.',
+    abc: `T:Dies irae (Berlioz, Symphonie fantastique)
+C:H. Berlioz
+M:6/8
+L:1/8
+Q:3/8=50
+K:C
+C,6 | B,,6 | C,6 | A,,6 | B,,6 | G,,6 | A,,6 | A,,6 | C,6 | C,6 | D,6 | C,6 | B,,6 | A,,6 | G,,6 | B,,6 | C,6 | B,,6 | A,,6- | A,,6 |]`,
+  },
 ];

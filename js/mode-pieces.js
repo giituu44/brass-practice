@@ -9,120 +9,20 @@
   store.myPieces = store.myPieces || [];
   store.pieces = store.pieces || {};
 
-  // ---------- sight-reading: a new melody every time ----------
-  const SIGHT = {
-    1: { keys: ['C', 'F', 'Bb', 'G', 'Eb'], meters: [[4, 4]], tempo: 72,
-      steps: [[1, 80], [2, 20]],
-      cells: [{ b: 1, d: [24], w: 4 }, { b: 2, d: [48], w: 2 }, { b: 3, d: [72], w: 0.4 }, { b: 4, d: [96], w: 0.3 }, { b: 1, d: [-24], w: 0.4 }] },
-    2: { keys: ['C', 'F', 'Bb', 'Eb', 'G', 'D', 'Ab'], meters: [[4, 4], [3, 4]], tempo: 80,
-      steps: [[1, 60], [2, 30], [3, 7], [4, 3]],
-      cells: [{ b: 1, d: [24], w: 3 }, { b: 2, d: [48], w: 1.2 }, { b: 1, d: [12, 12], w: 3 }, { b: 2, d: [36, 12], w: 1.2 },
-        { b: 1, d: [-12, 12], w: 0.5 }, { b: 1, d: [-24], w: 0.4 }, { b: 3, d: [72], w: 0.3 }] },
-    3: { keys: ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'G', 'D', 'A', 'E'], meters: [[4, 4], [3, 4], [2, 4]], tempo: 88,
-      steps: [[1, 50], [2, 30], [3, 10], [4, 7], [5, 3]],
-      cells: [{ b: 1, d: [24], w: 2 }, { b: 1, d: [12, 12], w: 2.5 }, { b: 2, d: [36, 12], w: 1.2 }, { b: 1, d: [6, 6, 6, 6], w: 1.5 },
-        { b: 1, d: [12, 6, 6], w: 1.5 }, { b: 1, d: [18, 6], w: 1.5 }, { b: 2, d: [12, 24, 12], w: 0.8 },
-        { b: 1, d: [8, 8, 8], w: 1, tuplet: true }, { b: 2, d: [48], w: 0.8 }, { b: 1, d: [-12, 12], w: 0.5 }] },
-  };
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  const weighted = (arr, w) => { let r = Math.random() * arr.reduce((a, x) => a + w(x), 0); for (const x of arr) if ((r -= w(x)) <= 0) return x; return arr[arr.length - 1]; };
-
-  function sightPiece(level) {
-    const L = SIGHT[level];
-    const key = pick(L.keys), [beats, beatType] = pick(L.meters);
-    const letters = TP.majorLetters(key);
-    // Scale notes you can play in your practice range.
-    let scale = TP.ALL_MIDI.filter(m => m >= S.low && m <= S.high && letters[m % 12]);
-    if (scale.length < 6) scale = TP.ALL_MIDI.filter(m => letters[m % 12]);
-    const tonicPc = TP.tonicPc(key);
-    const tonics = scale.map((m, i) => [m, i]).filter(([m]) => m % 12 === tonicPc);
-    const mid = scale.length / 2;
-    let at = (tonics.length ? tonics.reduce((a, b) => (Math.abs(b[1] - mid) < Math.abs(a[1] - mid) ? b : a)) : [0, Math.floor(mid)])[1];
-    const home = at;
-    let dir = Math.random() < 0.5 ? 1 : -1;
-    const stepNext = () => {
-      const [n] = weighted(L.steps, s => s[1]);
-      if (Math.random() < 0.3) dir = -dir;
-      let nx = at + dir * n;
-      if (nx < 0 || nx >= scale.length) { dir = -dir; nx = at + dir * n; }
-      at = Math.max(0, Math.min(scale.length - 1, nx));
-      return scale[at];
-    };
-    const note = (midi, dur, tuplet) => {
-      const n = TP.spellAs(midi, letters[midi % 12]);
-      return { midi, letter: n.letter, acc: n.acc, octave: n.octave, dur, tie: false, tuplet: tuplet ? { actual: 3, normal: 2 } : null };
-    };
-    const BARS = 8, barTicks = beats * 96 / beatType, beatT = 96 / beatType;
-    const measures = [];
-    for (let bar = 0; bar < BARS; bar++) {
-      const evs = [];
-      if (bar === BARS - 1) {
-        // End on the tonic nearest where the tune is.
-        const tonic = tonics.length ? tonics.reduce((a, b) => (Math.abs(b[1] - at) < Math.abs(a[1] - at) ? b : a))[0] : scale[home];
-        evs.push(note(tonic, barTicks));
-        measures.push(evs);
-        break;
-      }
-      let beat = 0;
-      while (beat < beats) {
-        const pool = L.cells.filter(c => c.b <= beats - beat && !(c.b === 4 && beat !== 0) && !(bar === 0 && beat === 0 && c.d[0] < 0));
-        const c = weighted(pool, x => x.w);
-        for (const d of c.d) {
-          const t = Math.abs(d) * beatT / 24;
-          evs.push(d < 0 ? { midi: null, dur: t, tie: false } : note(bar === 0 && beat === 0 && !evs.length ? scale[at] : stepNext(), t, c.tuplet));
-        }
-        beat += c.b;
-      }
-      measures.push(evs);
-    }
-    return { title: `Sight-reading · level ${level}`, composer: '', fifths: TP.MAJOR_FIFTHS[key] || 0, beats, beatType, tempo: L.tempo, measures, keyName: key };
-  }
+  const { sightPiece, slurPiece, partialsFor, SLUR_PATTERNS } = TP.gen;
   const sightCache = {};
 
-  // Lip slurs: one fingering, moving between its partials (the notes that fingering
-  // plays) inside your practice range. Best with the mic, which hears the partial.
-  const SLUR_PATTERNS = { pairs: 'two partials', triples: 'three partials', arpeggio: 'up and down the series' };
-  function partialsFor(f) {
-    return TP.ALL_MIDI.filter(m => m >= S.low && m <= S.high && FINGERINGS[m] && FINGERINGS[m].includes(f));
-  }
-  function slurPiece(f, pattern) {
-    const ps = partialsFor(f);
-    const q = 24, measures = [];
-    const note = (midi, dur) => {
-      const n = TP.spell(midi, 'flats');
-      return { midi, letter: n.letter, acc: n.acc, octave: n.octave, dur, tie: false };
-    };
-    const rest = dur => ({ midi: null, dur, tie: false });
-    if (pattern === 'arpeggio') {
-      const up = ps.concat(ps.slice(0, -1).reverse());
-      for (let i = 0; i < up.length; i += 4) measures.push(up.slice(i, i + 4).map(m => note(m, q)));
-      const last = measures[measures.length - 1];
-      while (last.reduce((t, e) => t + e.dur, 0) < 4 * q) last.push(rest(q));
-      measures.push([note(ps[0], 4 * q)]);
-    } else {
-      const span = pattern === 'triples' ? 3 : 2;
-      for (let i = 0; i + span <= ps.length; i++) {
-        const g = ps.slice(i, i + span);
-        const line = span === 2 ? [g[0], g[1], g[0], g[1]] : [g[0], g[1], g[2], g[1]];
-        measures.push(line.map(m => note(m, q)));
-        measures.push([note(g[0], 2 * q), rest(2 * q)]);
-      }
-    }
-    return { title: `Lip slurs · ${TP.fmtFingering(f)}`, composer: '', fifths: 0, beats: 4, beatType: 4, tempo: 72, measures };
-  }
-  TP.slurOptions = () => {
-    // Fingerings with at least two partials in range, most open first.
-    const fs = [...new Set(TP.ALL_MIDI.flatMap(m => FINGERINGS[m] || []))];
-    return fs.filter(f => partialsFor(f).length >= 2)
-      .sort((a, b) => (INSTRUMENTS.LOWER[a] || Number(a) || 0) - (INSTRUMENTS.LOWER[b] || Number(b) || 0));
-  };
-  TP.slurPatterns = SLUR_PATTERNS;
 
   // ---------- the piece list ----------
   const parsedLib = {};
   function libraryPiece(item) {
     if (!parsedLib[item.id]) parsedLib[item.id] = SC.parseABC(item.abc);
     return parsedLib[item.id];
+  }
+  function partPiece(item, part) {
+    const k = item.id + ':' + part;
+    if (!parsedLib[k]) parsedLib[k] = SC.parseABC(part === 2 ? item.abc2 : item.abc);
+    return parsedLib[k];
   }
   function findItem(id) {
     const sm = /^sight-(\d)$/.exec(id || '');
@@ -142,6 +42,12 @@
         note: `${f === '' ? 'No valves the whole time' : `Keep ${TP.fmtFingering(f)} down the whole time`}; change notes with air speed and lip, not the valves. Use the mic (🎤) — it hears which partial you hit.` };
     }
     const lib = LIBRARY.find(p => p.id === id);
+    if (lib && lib.abc2) {
+      // A duet: you play one part and the app can play the other.
+      const two = S.duetPart === 2;
+      return { id, title: lib.title, composer: lib.composer || '', level: lib.level, note: lib.note || '', cat: lib.cat, builtIn: true, duet: true,
+        piece: partPiece(lib, two ? 2 : 1), partner: partPiece(lib, two ? 1 : 2), abc: two ? lib.abc2 : lib.abc };
+    }
     if (lib) return { id, title: lib.title, composer: lib.composer || '', level: lib.level, note: lib.note || '', mic: lib.mic, cat: lib.cat, piece: libraryPiece(lib), builtIn: true, abc: lib.abc, acc: lib.acc };
     const mine = store.myPieces.find(p => p.id === id);
     if (mine) return { id, title: mine.title, composer: mine.piece.composer || '', note: mine.source === 'abc' ? 'Your ABC piece' : `Imported${mine.partName ? ' — ' + mine.partName : ''}`, cat: 'My pieces', piece: mine.piece, abc: mine.abc, mine: true };
@@ -323,6 +229,16 @@
   const shiftOf = id => (store.pieceShift[id] !== undefined ? store.pieceShift[id] : autoShift);
   const usingMic = () => S.input === 'mic';
   const gradable = midi => usingMic() || !!FINGERINGS[midi];
+  // The alternate fingering your intonation map found sits clearly better (8¢+) than the main one, or null.
+  TP.myFingering = midi => {
+    const d = store.intonation && store.intonation[midi];
+    if (!d || !d.alts || d.c === undefined || !FINGERINGS[midi]) return null;
+    let best = null;
+    for (const [f, a] of Object.entries(d.alts)) {
+      if (f !== d.f && Math.abs(d.c) - Math.abs(a.c) >= 8 && (!best || Math.abs(a.c) < Math.abs(best[1].c))) best = [f, a];
+    }
+    return best ? best[0] : null;
+  };
 
   function open(id, keepRange) {
     stop();
@@ -350,6 +266,9 @@
     $('pcOct').disabled = !!gen;
     $('pcKey').disabled = !!gen;
     $('pcAccRow').hidden = !item.acc;
+    $('pcDuetRow').hidden = !item.duet;
+    $('pcDuetPart').value = String(S.duetPart === 2 ? 2 : 1);
+    partnerTl = null;
     const sib = siblings();
     $('pcNav').hidden = sib.length < 2;
     $('pcPrev').disabled = sib.indexOf(item.id) <= 0;
@@ -374,7 +293,12 @@
     renderInfo();
     draw();
     idle();
+    openListeners.forEach(fn => fn(item));
   }
+  // Other parts of the app (the journal) follow which piece is open.
+  const openListeners = [];
+  TP.onPieceOpen = fn => openListeners.push(fn);
+  TP.currentPiece = () => item;
 
   // ---------- history: accuracy and tempo of your runs on this piece ----------
   const NS = 'http://www.w3.org/2000/svg';
@@ -382,7 +306,12 @@
   function renderHist() {
     const runs = (store.pieceHist && store.pieceHist[item.id]) || [];
     $('pcHist').hidden = runs.length < 2;
-    if (runs.length < 2) { $('pcHist').open = false; return; }
+    // Recorded takes (kept with the mic) show in the same pop-out, under the charts.
+    const takesBox = document.createElement('div');
+    takesBox.className = 'takes';
+    const forId = item.id;
+    if (TP.takes) TP.takes.render(takesBox, forId).then(n => { if (n && item && item.id === forId) $('pcHist').hidden = false; });
+    if (runs.length < 2) { $('pcHist').open = false; $('pcHistBody').textContent = ''; $('pcHistBody').appendChild(takesBox); $('pcSpark').textContent = ''; return; }
     // Sparkline in the button: the last 20 runs' accuracy.
     const last = runs.slice(-20), sp = $('pcSpark');
     sp.textContent = '';
@@ -429,6 +358,7 @@
     sum.textContent = `${runs.length} runs since ${fmtDate(runs[0].at)} · last ${lastR.pct}% at ${lastR.bpm} bpm`
       + (lastR.bpm !== first.bpm ? ` (from ${first.bpm})` : '') + '. Hollow dots are part-of-the-piece runs.';
     body.appendChild(sum);
+    body.appendChild(takesBox);
   }
 
   function renderInfo() {
@@ -472,6 +402,15 @@
     }
     // Fade notes we can't grade; show the practice range.
     for (const n of tl.notes) if (!gradable(n.midi)) for (let i = n.i; i <= n.last; i++) view.setState(i, 'oor');
+    // A fingering that sits better in tune on your horn (from the intonation map),
+    // written under the first such note in each bar.
+    if (S.myFingerings) {
+      const done = new Set();
+      for (const n of tl.notes) {
+        const f = TP.myFingering(n.midi);
+        if (f !== null && !done.has(n.m + ':' + n.midi)) { done.add(n.m + ':' + n.midi); view.annotate(n.i, TP.fmtFingering(f), 'tip'); }
+      }
+    }
     markRange();
     box.querySelectorAll('.mhit').forEach(r => r.addEventListener('click', e => {
       const m = Number(r.dataset.m);
@@ -554,6 +493,7 @@
     if (S.pieceLoop) bits.push(S.pieceRamp ? 'loop, speeding up' : 'loop');
     if (S.pieceGuide) bits.push('guide on');
     if (item && item.acc) bits.push(S.pieceAcc ? 'with piano' : 'no piano');
+    if (item && item.duet) bits.push(`part ${S.duetPart === 2 ? 2 : 1}` + (S.pieceDuet ? ', with partner' : ', alone'));
     if (!S.pieceClick) bits.push('no metronome');
     if (S.pieceMemo) bits.push('memorize');
     $('pcMoreSum').textContent = bits.length ? '· ' + bits.join(' · ') : '';
@@ -653,7 +593,7 @@
     const countBeats = Math.max(1, Math.round(barT / bt));
     const t0 = ctx.currentTime + 0.3;
     const tStart = t0 + countBeats * bt * spt;
-    running = { kind, r, results: [], combo: 0, bars: {}, tune: [] };
+    running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], readings: usingMic() ? [] : null };
     if (kind === 'play' && usingMic()) running.take = startTake({ tStart, startT: sel.startT, spt });
     TP.setSubmitLabel('Stop');
     follow(r, tStart, sel.startT, spt);
@@ -678,6 +618,10 @@
     }
     // The guide's notes come out of the speakers too: the mic would grade them as yours.
     if (mic && S.pieceGuide && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Guide + mic: use headphones, or the mic will hear the guide and count its notes as yours.', 7000); }
+    if (item.partner && S.pieceDuet) {
+      schedulePartner(r, sel, tStart, spt);
+      if (mic && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Duet + mic: use headphones, or the mic will hear the other part.', 7000); }
+    }
     sel.notes.forEach((n, k) => {
       const t = tStart + (n.start - sel.startT) * spt;
       // A repeat of the note before has to be played again, not just held over.
@@ -715,6 +659,7 @@
         hud();
         TP.activity();
         // With the mic, also note how in tune the held part of the note was.
+        if (mic && grade !== 'miss') running.traces.push({ n, t, dur });
         if (mic && grade !== 'miss' && dur >= 0.25) {
           r.at(t + Math.max(win, dur * 0.9) + 0.05, () => {
             const c = TP.mic.centsOn(n.midi, t + 0.1, t + dur * 0.9);
@@ -736,7 +681,7 @@
       const dest = ctx.createMediaStreamDestination();
       src.connect(dest);
       const rec = new MediaRecorder(dest.stream);
-      const take = { ...info, rec, dest, src, chunks: [], t0: ctx.currentTime };
+      const take = { ...info, rec, dest, src, chunks: [], t0: ctx.currentTime, pieceId: item.id };
       rec.ondataavailable = e => { if (e.data.size) take.chunks.push(e.data); };
       rec.start();
       return take;
@@ -747,6 +692,14 @@
     take.rec.onstop = async () => {
       try { take.src.disconnect(take.dest); } catch (e) { /* already gone */ }
       if (!take.chunks.length) return;
+      // A finished, graded run is kept with your other takes of this piece.
+      if (take.pct !== undefined && TP.takes) {
+        const type = take.rec.mimeType || 'audio/webm';
+        TP.takes.add(take.pieceId, { at: Date.now(), pct: take.pct, bpm: take.bpm, bars: take.bars, type, blob: new Blob(take.chunks, { type }) })
+          .then(() => { if (item && item.id === take.pieceId) renderHist(); }, () => {
+            if (!takesWarned) { takesWarned = true; TP.toast('This browser won’t keep recordings here, so takes aren’t saved — use ⬇ Save to keep one.', 7000); }
+          });
+      }
       try {
         const data = await new Blob(take.chunks).arrayBuffer();
         lastTake = { ...take, buffer: await TP.audio().decodeAudioData(data) };
@@ -798,9 +751,32 @@
     };
   }
 
+  // Duets: the other part, on your instrument's sound (concert pitch, following any key change).
+  let partnerTl = null;
+  function schedulePartner(r, sel, tStart, spt) {
+    partnerTl = partnerTl || SC.timeline(item.partner);
+    for (const n of partnerTl.notes) {
+      if (n.start < sel.startT || n.start >= sel.endT) continue;
+      const len = Math.max(0.12, Math.min(n.dur, sel.endT - n.start) * spt * 0.95);
+      r.play(n.midi + keySemis + TP.inst().transpose, len, tStart + (n.start - sel.startT) * spt, false, 0.8);
+    }
+  }
+  // With the mic, after a run: a line through each note you played, showing your pitch
+  // over its length (up = sharp). Scoops, sags and late centring show at a glance.
+  TP.mic.on(x => { if (running && running.readings) running.readings.push(x); });
+  function drawTraces(run) {
+    if (!run.readings || !run.traces.length) return;
+    for (const { n, t, dur } of run.traces) {
+      const pts = run.readings
+        .filter(x => x.t >= t && x.t <= t + dur && x.midi !== null && Math.abs(x.midi - n.midi) <= 1)
+        .map(x => ({ f: (x.t - t) / dur, c: x.cents + 100 * (x.midi - n.midi) }));
+      view.trace(n.i, pts, n.dur);
+    }
+  }
+
   // Piano accompaniment ("start,dur,midi;..." in ticks, concert pitch), from where the passage starts.
   const accCache = {};
-  let accWarned = false, guideWarned = false;
+  let accWarned = false, guideWarned = false, takesWarned = false;
   function scheduleAccompaniment(r, sel, tStart, spt) {
     const notes = accCache[item.id] || (accCache[item.id] = item.acc.split(';').map(x => x.split(',').map(Number)));
     for (const [st, d, m] of notes) {
@@ -814,12 +790,15 @@
     const res = running ? running.results : [];
     const wasLoop = S.pieceLoop;
     view.setCurrent(null);
-    if (running && running.take) { endTake(running.take); running.take = null; }
+    const take = running && running.take;
+    if (take) { endTake(take); running.take = null; }
     if (kind === 'listen') { running = null; idle(); return; }
     const total = res.length;
     if (!total) { running = null; idle(); return; }
     const perfect = res.filter(g => g === 'perfect').length, late = res.filter(g => g === 'late').length;
     const pct = Math.round(((perfect + 0.6 * late) / total) * 100);
+    // The recording finishes saving a moment later; it's kept with this score.
+    if (take) Object.assign(take, { pct, bpm: S.pieceBpm, bars: from === 0 && to === piece.measures.length - 1 ? null : [from + 1, to + 1] });
     const stars = pct >= 95 ? '★★★' : pct >= 80 ? '★★☆' : pct >= 60 ? '★☆☆' : '☆☆☆';
     const whole = from === 0 && to === piece.measures.length - 1;
     TP.markDone('piece');
@@ -854,6 +833,7 @@
     }
     const spot = pct < 95 ? troubleSpot(running.bars) : null;
     const tune = running.tune;
+    drawTraces(running);
     running = null;
     TP.setSubmitLabel('Start');
     say(msg + '. Space to play again.', pct >= 80 ? 'good' : '');
@@ -1035,7 +1015,9 @@
     });
   }
   $('pcWhole').addEventListener('click', () => { from = 0; to = piece.measures.length - 1; fillRange(); markRange(); });
-  for (const [id, key] of [['pcClick', 'pieceClick'], ['pcGuide', 'pieceGuide'], ['pcLoop', 'pieceLoop'], ['pcRamp', 'pieceRamp'], ['pcAcc', 'pieceAcc'], ['pcMemo', 'pieceMemo']]) {
+  $('pcDuetPart').addEventListener('change', e => { e.target.blur(); S.duetPart = Number(e.target.value); save(); open(item.id, true); });
+  $('pcMyF').addEventListener('change', e => { e.target.blur(); S.myFingerings = e.target.checked; save(); if (!running) draw(); });
+  for (const [id, key] of [['pcClick', 'pieceClick'], ['pcGuide', 'pieceGuide'], ['pcLoop', 'pieceLoop'], ['pcRamp', 'pieceRamp'], ['pcAcc', 'pieceAcc'], ['pcMemo', 'pieceMemo'], ['pcDuet', 'pieceDuet']]) {
     $(id).addEventListener('change', e => { e.target.blur(); S[key] = e.target.checked; save(); optionsSummary(); $('pcScore').classList.toggle('memorize', S.pieceMemo); });
   }
   $('pcKey').addEventListener('change', e => {
@@ -1087,6 +1069,8 @@
       $('pcRamp').checked = S.pieceRamp;
       $('pcAcc').checked = S.pieceAcc;
       $('pcMemo').checked = S.pieceMemo;
+      $('pcDuet').checked = S.pieceDuet;
+      $('pcMyF').checked = S.myFingerings;
       open(S.pieceId || LIBRARY[0].id, item && item.id === S.pieceId);
     },
     leave() { stop(); },

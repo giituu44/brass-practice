@@ -104,6 +104,7 @@
       ? `All done today — great work! ${p.minutes} min practised.`
       : `${done} of ${list.length} done · ${p.minutes} min today · ${p.streak ? `🔥 ${p.streak}-day streak` : 'start a streak today'}`;
     $('tdMins').value = String(MINS.includes(Number(S.todayMins)) ? S.todayMins : 20);
+    if (TP.renderJournal) TP.renderJournal();
     $('tdRing').style.setProperty('--p', done / list.length);
     $('tdRing').textContent = `${done}/${list.length}`;
 

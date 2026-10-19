@@ -73,6 +73,12 @@
         <div id="tdStats" class="stats"></div>
       </section>
       </div>
+      <section class="card">
+        <h2>Journal</h2>
+        <label class="sub" for="tdJournal">What went well today, and what to work on next time.</label>
+        <textarea id="tdJournal" class="text-input" rows="3" placeholder="e.g. low F felt easier; Kopprasch 3, bar 9 still rushes"></textarea>
+        <p id="tdJournalPrev" class="sub tight journal-prev" hidden></p>
+      </section>
     </div>
 
     <!-- Fingerings -->
@@ -193,10 +199,15 @@
             </div>
             <label class="check"><input type="checkbox" id="pcClick"> Metronome</label>
             <label class="check" id="pcAccRow" hidden><input type="checkbox" id="pcAcc"> Piano accompaniment</label>
+            <div class="pop-row" id="pcDuetRow" hidden>
+              <label class="pill"><span>You play</span><select id="pcDuetPart"><option value="1">Part 1</option><option value="2">Part 2</option></select></label>
+              <label class="check"><input type="checkbox" id="pcDuet"> The app plays the other part</label>
+            </div>
             <label class="check"><input type="checkbox" id="pcGuide"> Play every note for me (guide)</label>
             <label class="check"><input type="checkbox" id="pcLoop"> Loop</label>
             <label class="check sub-check"><input type="checkbox" id="pcRamp"> …and speed up 4 bpm after each clean run (95%+)</label>
             <label class="check"><input type="checkbox" id="pcMemo"> Memorize: hide notes until played</label>
+            <label class="check" title="From the intonation map (Tuner): an alternate fingering that measured clearly closer to in tune"><input type="checkbox" id="pcMyF"> Show fingerings that sit better on my horn</label>
             <div class="pop-row">
               <button id="pcResetTempo" class="link-btn">reset tempo</button>
               <button id="pcEdit" class="link-btn" hidden>Edit</button>
@@ -207,12 +218,21 @@
         </details>
         <span class="tb-spacer"></span>
         <span id="pcMeta" class="meta"></span>
+        <details class="pop" id="pcJournal">
+          <summary class="pill ghost" title="Your notes on this piece">📝 Notes</summary>
+          <div class="pop-body">
+            <label class="sub" for="pcJournalText">Your notes on this piece</label>
+            <textarea id="pcJournalText" class="text-input" rows="4" placeholder="e.g. bar 12: breathe after the high F"></textarea>
+            <p class="sub tight" id="pcJournalWhen"></p>
+          </div>
+        </details>
         <details class="pop hist-pop" id="pcHist" hidden>
           <summary class="pill ghost" title="Your runs on this piece"><svg id="pcSpark" class="spark" viewBox="0 0 64 20" aria-hidden="true"></svg> History</summary>
           <div class="pop-body" id="pcHistBody"></div>
         </details>
       </div>
       <p id="pcNote" class="piece-note" hidden></p>
+      <p id="pcMyNote" class="piece-note mine" hidden></p>
       <p id="pcRangeWarn" class="note-box warn" hidden></p>
       <div id="pcScore" class="score-box" title="Click a bar to start there · Shift-click to end there"></div>
       <div id="pcFeedback" class="status" aria-live="polite">&nbsp;</div>
@@ -683,7 +703,10 @@
   <script src="js/library.js"></script>
   <script src="js/library-methods.js"></script>
   <script src="js/omr.js"></script>
+  <script src="js/pieces-gen.js"></script>
+  <script src="js/takes.js"></script>
   <script src="js/mode-pieces.js"></script>
+  <script src="js/journal.js"></script>
   <script src="js/import.js"></script>
   <script src="js/mode-today.js"></script>
   <script src="js/mode-tuner.js"></script>
