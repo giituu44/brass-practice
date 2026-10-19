@@ -24,7 +24,7 @@
     if (lt) { ltFinish(); return; }
     if (!TP.mic.active) await startMic();
     if (!TP.mic.active) { ltSay('The long-tone challenge needs the microphone.', 'bad'); return; }
-    lt = { midi: Number(ltNote.value), goal: Number(ltGoal.value), shape: $('ltShape').value, phase: 'wait', cents: [], pts: [] };
+    lt = { midi: Number(ltNote.value), goal: Number(ltGoal.value), shape: $('ltShape').value, phase: 'wait', cents: [], pts: [], readings: [] };
     $('ltStart').textContent = 'Stop';
     $('ltBar').style.width = '0%';
     drawLt(lt);
@@ -45,8 +45,10 @@
     if (held >= r.goal) TP.markDone('warmup');
     TP.activity();
     drawLt(r);
+    // How the note began: straight onto the pitch, or a scoop up into it?
+    const att = TP.mic.attackText(TP.mic.attackSummary([TP.mic.attackOf(r.readings, r.midi, r.start, held, S.micAnyOctave)]));
     ltSay(`Held ${held.toFixed(1)} s${held >= r.goal ? ' — goal reached!' : ''} · ${Math.abs(Math.round(mean))}¢ ${mean > 0 ? 'sharp' : 'flat'} on average · pitch steadiness ${steady}%`
-      + (held > prev && prev ? ' · new best!' : '') + shapeReport(r), held >= r.goal ? 'good' : '');
+      + (held > prev && prev ? ' · new best!' : '') + shapeReport(r) + (att ? ' · attack: ' + att : ''), held >= r.goal ? 'good' : '');
   }
 
   // ---------- the shape of a long tone: loudness (and pitch) over time ----------
@@ -106,6 +108,8 @@
   $('ltShape').addEventListener('change', e => { S.ltShape = e.target.value; TP.save(); if (!lt) drawLt({ goal: Number(ltGoal.value), shape: S.ltShape, pts: [] }); });
   TP.mic.on(r => {
     if (!lt) return;
+    lt.readings.push(r);
+    if (lt.phase === 'wait' && lt.readings.length > 100) lt.readings.splice(0, 50);
     const on = TP.mic.matches(r.midi, lt.midi) && Math.abs(r.cents) <= 35;
     if (lt.phase === 'wait') {
       if (on && r.held >= 0.15) { lt.phase = 'hold'; lt.start = r.t - r.held; lt.last = r.t; }
@@ -199,6 +203,9 @@
           + (t.sub === 2 || t.sub === 4 ? ' (your K?)' : '');
       }
     }
+    // How each note began (a clean T lands right on the pitch).
+    const att = TP.mic.attackSummary(res.map((x, k) => (x === null ? null : TP.mic.attackOf(t.readings, t.midi, t.want[k] + x / 1000, step, true))));
+    if (att) msg += ' · attacks ' + TP.mic.attackText(att);
     const good = hits.length >= t.want.length * 0.9 && sd <= 30;
     tgSay(msg + (good ? ' — nice and even.' : '.'), good ? 'good' : '');
   }

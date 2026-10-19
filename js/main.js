@@ -345,7 +345,7 @@
     document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = bg || m.dataset.color; });
   }
   applyTheme();
-  const openSettings = () => { if (active) active.leave(); fillSettings(); dlg.showModal(); };
+  const openSettings = () => { if (active) active.leave(); fillSettings(); TP.renderDataSafety(); dlg.showModal(); };
   // Settings in sections, one at a time.
   function settingsSection(sec) {
     dlg.querySelectorAll('.set-seg button').forEach(b => b.classList.toggle('active', b.dataset.sec === sec));
@@ -408,17 +408,8 @@
   fillInstrumentOptions();
 
   // ---------- backup ----------
-  $('backupBtn').addEventListener('click', () => {
-    store.lastBackup = Date.now();
-    save();
-    const blob = new Blob([JSON.stringify({ app: 'brass-practice', version: 1, saved: new Date().toISOString(), data: JSON.parse(TP.serialize()) }, null, 1)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `brass-practice-backup-${TP.dayKey()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  });
+  // (The file, sending it to another device and the daily copies: js/datasafe.js.)
+  $('backupBtn').addEventListener('click', () => TP.downloadFile(TP.backupFile()));
   $('restoreBtn').addEventListener('click', () => $('restoreInput').click());
   $('restoreInput').addEventListener('change', async e => {
     const f = e.target.files[0];
@@ -477,6 +468,7 @@
     if (mode === 'mic') TP.toast('Listening — play the notes on your tuba. Click 🎤 again to go back to valves.');
     if (active) { active.leave(); active.enter(); }
   }
+  TP.setInput = setInput;
   $('micBtn').addEventListener('click', () => { if (S.input !== 'mic') setInput('mic'); });
   $('keysSeg').addEventListener('click', () => { if (S.input === 'mic') setInput('valves'); });
   TP.mic.on(r => {

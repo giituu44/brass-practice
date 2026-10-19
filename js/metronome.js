@@ -16,7 +16,7 @@
     return out;
   }
 
-  let timer = 0, next = 0, tick = 0;
+  let timer = 0, next = 0, tick = 0, gapAt = null, wasSilent = false;
   const LOOKAHEAD = 0.12;
 
   function blip(at, level) {
@@ -45,6 +45,16 @@
       if (k === 0 && bar > 0 && up && bar % every === 0) { m.bpm = Math.min(260, m.bpm + up); setTimeout(render, Math.max(0, (next - ctx.currentTime) * 1000)); }
       // Gaps: some bars are silent (the lights keep going, dimmed).
       const silent = play && mute && bar % (play + mute) >= play;
+      // When the click comes back after silent bars, see how far you drifted (with the mic).
+      if (k === 0) {
+        if (silent && !wasSilent) gapAt = next;
+        if (!silent && wasSilent && gapAt !== null) {
+          const a = gapAt, b = next, step = 60 / m.bpm / m.sub;
+          setTimeout(() => drift(a, b, step), Math.max(0, (b - ctx.currentTime) * 1000) + 400);
+          gapAt = null;
+        }
+        wasSilent = silent;
+      }
       const beat = Math.floor(k / m.sub);
       const level = k === 0 && m.beats > 1 ? 2 : k % m.sub === 0 ? (starts.has(beat) ? 1.5 : 1) : 0;
       if (!silent) blip(next, level);
@@ -63,11 +73,31 @@
     $('metro').classList.add('pulse');
     setTimeout(() => $('metro').classList.remove('pulse'), 90);
   }
+  // ---------- gaps: how far your pulse drifted in the silent bars ----------
+  // Your note starts in the gap, against where the clicks would have been: the last few
+  // say where you were when the click came back; the slope, the tempo you were really at.
+  const log = [];
+  TP.mic.on(x => { if (timer && S.metro.gap) { log.push(x); if (log.length > 600) log.splice(0, 300); } });
+  function drift(a, b, step) {
+    if (!timer || !TP.mic.active) return;
+    const starts = TP.mic.noteStarts(log.filter(x => x.t >= a - 0.2 && x.t <= b + 0.1)).filter(s => s >= a - step / 2 && s < b - step / 2);
+    const msg = $('metroDrift');
+    msg.hidden = false;
+    if (starts.length < 2) { msg.textContent = 'Silent bars: no notes heard — keep playing through them.'; return; }
+    const pts = starts.map(s => { const k = Math.round((s - a) / step); return { k, off: (s - a - k * step) * 1000 }; });
+    const tail = pts.slice(-Math.max(2, Math.ceil(pts.length / 3)));
+    const end = Math.round(tail.reduce((x, p) => x + p.off, 0) / tail.length);
+    const r = TP.metroDrift(pts, step, S.metro.bpm);
+    msg.textContent = Math.abs(end) < 25 ? `Silent bars: right with the click when it came back (${end > 0 ? '+' : ''}${end} ms) — ${pts.length} notes heard.`
+      : `Silent bars: you came back ${Math.abs(end)} ms ${end > 0 ? 'late (dragging)' : 'early (rushing)'}` + (Math.abs(r - S.metro.bpm) >= 2 ? ` — you were at about ${r} bpm.` : '.');
+  }
   async function start() {
     const ctx = TP.audio();
     await ctx.resume();
     next = ctx.currentTime + 0.08;
     tick = 0;
+    gapAt = null;
+    wasSilent = false;
     timer = setInterval(schedule, 25);
     schedule();
     render();
@@ -100,6 +130,8 @@
     $('metroGo').classList.toggle('primary', !timer);
     $('metro').classList.toggle('running', !!timer);
     $('metroMini').textContent = timer ? m.bpm : '';
+    if (!m.gap) $('metroDrift').hidden = true;
+    else if (!TP.mic.active) { $('metroDrift').hidden = false; $('metroDrift').textContent = 'Turn on the mic (🎤) and it measures how far you drift in the silent bars.'; }
     const dots = $('metroDots');
     if (dots.children.length !== m.beats) dots.innerHTML = '<span class="dot"></span>'.repeat(m.beats);
     if (!timer) [...dots.children].forEach(d => d.classList.remove('on'));
@@ -127,5 +159,14 @@
   }
 
   TP.metronome = { start, stop, get running() { return !!timer; } };
+  // The tempo you were really playing at: a straight line through your note starts
+  // ({ k: grid step, off: ms from it }) — a slope of +10 ms a step is a little slow.
+  TP.metroDrift = (pts, step, bpm) => {
+    const n = pts.length, mk = pts.reduce((s, p) => s + p.k, 0) / n, mo = pts.reduce((s, p) => s + p.off, 0) / n;
+    let sxy = 0, sxx = 0;
+    for (const p of pts) { sxy += (p.k - mk) * (p.off - mo); sxx += (p.k - mk) ** 2; }
+    const slope = sxx ? sxy / sxx / 1000 : 0;
+    return Math.round(bpm * step / (step + slope));
+  };
   render();
 })();

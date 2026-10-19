@@ -8,7 +8,7 @@
 // over when you reload (the app offers to); then the old caches are deleted.
 // tools/check.ps1 sets these two versions from the files' contents, so a change to any of
 // them makes a new version.
-const SHELL_VERSION = '0d15e477a2';
+const SHELL_VERSION = '55ba1f766b';
 const SOUNDS_VERSION = '14015f243f';
 // Several GitHub Pages sites share one origin (and so one set of caches): ours are prefixed.
 const PREFIX = 'brass-practice-';
@@ -18,13 +18,13 @@ const SOUND_CACHE = PREFIX + 'sounds-' + SOUNDS_VERSION;
 // Everything the app loads (tools/check.ps1 checks this list against the files).
 const SHELL_FILES = [
   'index.html', 'style.css', 'manifest.webmanifest', 'fingerings.js',
-  'js/core.js', 'js/goals.js', 'js/import.js', 'js/instruments.js', 'js/journal.js',
+  'js/audition.js', 'js/core.js', 'js/datasafe.js', 'js/goals.js', 'js/import.js', 'js/instruments.js', 'js/journal.js',
   'js/library-methods.js', 'js/library.js', 'js/main.js', 'js/metronome.js', 'js/mode-chart.js',
   'js/mode-echo.js', 'js/mode-fingerings.js', 'js/mode-intonation.js', 'js/mode-pieces.js',
   'js/mode-player.js', 'js/mode-progress.js', 'js/mode-rhythm.js', 'js/mode-scales.js',
   'js/mode-today.js', 'js/mode-tuner.js', 'js/mode-warmup.js', 'js/omr.js', 'js/pieces-gen.js',
-  'js/pieces-library.js', 'js/pitch.js', 'js/pwa.js', 'js/score.js', 'js/session.js',
-  'js/stand.js', 'js/takes.js',
+  'js/pieces-library.js', 'js/pitch.js', 'js/pwa.js', 'js/score.js', 'js/session.js', 'js/share.js',
+  'js/stand.js', 'js/takes.js', 'js/warmup-sbp.js',
   'vendor/pdfjs/pdf.min.js', 'vendor/pdfjs/pdf.worker.min.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',

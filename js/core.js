@@ -89,6 +89,9 @@ const TP = (() => {
     breathPattern: '4-0-8',
     breathRounds: 6,
     buzzPattern: 'siren',
+    sbRounds: 6,          // Sing, buzz, play: notes per go
+    remindDays: [1, 3, 5],// practice reminder (calendar file): days of the week, 0 = Sunday
+    remindTime: '18:00',
   };
 
   // ---------- storage ----------
@@ -162,13 +165,17 @@ const TP = (() => {
   // Rest reminders (Settings): brass players' lips tire. After so many minutes of
   // playing with no real break (2+ minutes), say so — once per stretch.
   let stretch = 0, restWarned = false;
-  function activity() {
-    const now = Date.now();
-    if (!stretch || !store.lastAct || now - store.lastAct > 120000) { stretch = now; restWarned = false; }
-    if (S.restAfter && !restWarned && now - stretch >= S.restAfter * 60000) {
+  function remindRest(minutes) {
+    if (S.restAfter && !restWarned && minutes >= S.restAfter) {
       restWarned = true;
       toast(`You've been playing for ${S.restAfter} minutes without a break — rest your lips for a few minutes. (A good rule: rest about as much as you play.)`, 10000);
     }
+  }
+  function activity() {
+    const now = Date.now();
+    if (!stretch || !store.lastAct || now - store.lastAct > 120000) { stretch = now; restWarned = false; }
+    // With the mic listening, the reminder counts time actually playing instead (played()).
+    if (!(api.mic && api.mic.active)) remindRest((now - stretch) / 60000);
     const d = store.days[dayKey()] || (store.days[dayKey()] = { sec: 0, n: 0 });
     if (store.lastAct && now - store.lastAct < 90000) d.sec += (now - store.lastAct) / 1000;
     store.lastAct = now;
@@ -177,6 +184,20 @@ const TP = (() => {
     if (store.snap) store.snap[dayKey()] = notesMastered();
     save();
     progressListeners.forEach(fn => fn());
+  }
+  // Time with sound coming out of the horn, as the mic hears it (sec at a time): kept per
+  // day beside the time in the app (Progress shows both), and what rest reminders count
+  // while the mic is on — minutes of sound since your last break of 2 minutes or more.
+  const sound = { stretch: 0, last: 0, unsaved: 0 };
+  function played(sec) {
+    const now = Date.now();
+    if (now - sound.last > 120000) { sound.stretch = 0; restWarned = false; }
+    sound.last = now;
+    sound.stretch += sec;
+    remindRest(sound.stretch / 60);
+    const d = store.days[dayKey()] || (store.days[dayKey()] = { sec: 0, n: 0 });
+    d.play = (d.play || 0) + sec;
+    if ((sound.unsaved += sec) >= 15) { sound.unsaved = 0; save(); }
   }
   // Today's routine: modes mark what's been done, e.g. markDone('scale').
   function markDone(key, n = 1) {
@@ -860,7 +881,7 @@ const TP = (() => {
 
   // ---------- instruments ----------
   // Practice history kept separately for each instrument.
-  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones', 'rangeRec', 'echo', 'trouble', 'pieceMiss', 'goals', 'snap'];
+  const PER_INSTRUMENT = ['notes', 'scales', 'pieces', 'pieceShift', 'pieceTempo', 'pieceKey', 'pieceHist', 'intonation', 'longTones', 'rangeRec', 'echo', 'trouble', 'pieceMiss', 'goals', 'snap', 'breaths'];
   let inst = null;
   function applyInstrument(id) {
     const next = INSTRUMENTS.byId[id] || INSTRUMENTS.byId['tuba-bb4'];
@@ -893,7 +914,7 @@ const TP = (() => {
     outputUntil: -1,
     S, store, save, serialize, $, ALL_MIDI, modes: {}, toast, SMOKE,
     noteMenu, myFingering, gradeNote, gradeWait, tempoControl,
-    activity, notesMastered, progress, onProgress: fn => progressListeners.push(fn), markDone, doneToday, dayKey,
+    activity, played, notesMastered, progress, onProgress: fn => progressListeners.push(fn), markDone, doneToday, dayKey,
     LETTERS, NATURAL_PC, ACC_TEXT, SHARPS, MAJOR_FIFTHS, MAJOR_STEPS,
     spell, spellAs, label, flatLabel, fmtFingering, checkFingering, tonicPc, tonicName,
     keyFifths, keySigAcc, shownAccidentals, majorLetters,

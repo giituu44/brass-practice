@@ -1117,3 +1117,44 @@ body.in-session main { padding-bottom: 96px; }
 .pl-wave { display: block; width: 100%; height: 90px; border-radius: 10px; background: var(--valve); cursor: crosshair; touch-action: none; }
 .file-pill { cursor: pointer; }
 .wu-routine i { position: absolute; top: 8px; right: 10px; font-style: normal; font-size: 11px; font-weight: 700; color: var(--brass); }
+
+/* ---------- comparing two takes: A blue, B orange (dashed, so they differ without colour) ---------- */
+svg .ptrace.ta { stroke: #3d8bd9; }
+svg .ptrace.tb { stroke: var(--warn); stroke-dasharray: 5 3; }
+.cmp-a, .cmp-b { display: inline-block; min-width: 18px; border-radius: 4px; color: #fff; font-weight: 700; font-size: 12px; padding: 0 5px; }
+.cmp-a { background: #3d8bd9; }
+.cmp-b { background: var(--warn); }
+.cmp-box .pill { margin-top: 4px; }
+.take-cmp { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* ---------- breaths: planned, and taken where you hadn't planned ---------- */
+svg .breath.planned { fill: var(--brass); }
+svg .breath.unplanned { fill: var(--bad); }
+.score-box.breath-edit { cursor: crosshair; outline: 2px dashed var(--brass); outline-offset: 2px; }
+
+/* ---------- sing, buzz, play ---------- */
+.sb-steps { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 2px; }
+.sb-step { flex: 1; min-width: 80px; display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 10px; background: var(--valve); }
+.sb-step b { font-size: 15px; }
+.sb-step span { font-size: 13px; color: var(--muted); min-height: 1.3em; }
+.sb-step.now { outline: 2px solid var(--brass); }
+.sb-step.ok { background: var(--good-soft); }
+.sb-step.miss { background: var(--bad-soft); }
+.sb-log { width: 100%; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- Progress: time playing, inside each week's bar ---------- */
+.prog-chart .bar.played { fill: var(--ink); opacity: .3; }
+
+/* ---------- metronome gaps, mock audition, sharing, reminders, recordings ---------- */
+.metro-drift { max-width: 280px; margin: 6px 0 0; }
+.aud-dlg { max-width: 580px; }
+.aud-list { display: flex; flex-direction: column; gap: 2px; max-height: 40vh; overflow: auto; margin: 8px 0; }
+.aud-row { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.aud-row .aud-note { grid-column: 1 / -1; width: 100%; }
+.share-dlg { max-width: 540px; }
+.share-link { width: 100%; font-size: 12px; word-break: break-all; margin-top: 8px; }
+.remind-form { min-width: 250px; }
+.rm-days { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 8px; }
+.rm-day { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; min-width: 32px; }
+.pl-music { margin-top: 10px; }
+.pl-score { max-height: 280px; overflow: auto; margin-top: 8px; }

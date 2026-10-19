@@ -155,6 +155,7 @@
     duets.filter(d => lengths[d.id] !== lengths[d.id + ' part 2']).map(d => d.id).join(', '));
   eq('Kopprasch has 60 studies', LIBRARY.filter(p => p.book === 'Kopprasch Op. 6').length, 60);
   eq('Bordogni has 53 vocalises', LIBRARY.filter(p => p.book === 'Bordogni vocalises').length, 53);
+  eq('Slama has 66 études', LIBRARY.filter(p => p.book === 'Slama 66 Etudes').length, 66);
   {
     const p = SC.parseABC('X:1\nM:4/4\nL:1/4\nK:Bb\nB,, C, D, E, | F,4 |]');
     const tl = SC.timeline(p);
@@ -214,6 +215,16 @@
     check('A real semitone up is read as the next note', rs2.filter(r => r.t > 0.75 && r.midi !== null).every(r => r.midi === 47));
   }
 
+  {
+    // Attacks: straight onto the pitch, or a scoop up from 70¢ flat over 0.2 s.
+    const clean = TP.mic.attackOf(TP.mic.analyse(tone(0.8, () => hzOf(46)), sr), 46, 0, 0.8);
+    check('A clean attack settles at once and starts in tune', clean && clean.settle !== null && clean.settle <= 0.1 && Math.abs(clean.from) < 30, JSON.stringify(clean));
+    const scoop = TP.mic.attackOf(TP.mic.analyse(tone(0.8, t => hzOf(46) * Math.pow(2, -0.7 * (1 - Math.min(1, t / 0.2)) / 12)), sr), 46, 0, 0.8);
+    check('A scoop starts flat and settles late', scoop && scoop.from <= -30 && scoop.settle >= 0.1, JSON.stringify(scoop));
+    const s = TP.mic.attackSummary([clean, scoop]);
+    check('…and the summary counts one scoop', s && s.n === 2 && s.scoops === 1, JSON.stringify(s));
+  }
+
   function summary() {
     const s = document.getElementById('summary');
     s.textContent = fail ? `${fail} failed, ${pass} passed` : `All ${pass} passed`;
@@ -262,6 +273,36 @@
     } catch (e) { check('Settings and stand mode', false, e.message); }
     check('No errors anywhere', !errors.length, errors.slice(0, 3).join(' · '));
     summary();
+    // Sharing a piece by link, the calendar file, following a recording, gap drift, and
+    // the new dialogs.
+    (async () => {
+      try {
+        const C = F.shareCodec, piece = { v: 1, t: 'Tést ♭', abc: 'X:1\nK:C\nCDEF|]', g: { bpm: 96 } };
+        eq('A shared piece comes through the link unchanged', await C.decode(await C.encode(piece)), piece);
+        const ics = F.practiceIcs([1, 3, 5], '18:30', 30, new Date(2026, 9, 19, 19, 0));   // a Monday, after 18:30
+        check('Calendar file: weekly on Mon, Wed and Fri, starting Wednesday', /RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR/.test(ics) && /DTSTART:20261021T183000/.test(ics) && /DURATION:PT30M/.test(ics),
+          ics.split('\r\n').filter(l => /^(DTSTART|RRULE)/.test(l)).join(' '));
+        const beats = [1, 1.5, 2, 2.5, 3.1];
+        eq('Following a recording: the 4th tap is beat 3', F.beatMap.tick(beats, 2.5, 24), 72);
+        eq('…and time → beat → time comes back', Math.round(F.beatMap.time(beats, F.beatMap.tick(beats, 2.8, 24), 24) * 1000), 2800);
+        eq('Gap drift: 10 ms later each beat at 60 bpm is about 59 bpm', F.metroDrift([0, 1, 2, 3].map(k => ({ k, off: 10 * k })), 1, 60), 59);
+        w.document.getElementById('audOpen').click();
+        check('Mock audition: the setup lists pieces to choose', w.document.getElementById('audDlg').open && w.document.querySelectorAll('#audList input').length >= 2);
+        w.document.getElementById('audDlg').close();
+        F.show('pieces');
+        w.document.getElementById('pcShare').click();
+        await new Promise(r => setTimeout(r, 400));
+        const link = w.document.getElementById('shLink').value, m = /#p=(.+)$/.exec(link);
+        check('Share: the link carries the open piece', !!m && (await C.decode(m[1])).lib === F.currentPiece().id, link.slice(0, 80));
+        w.document.getElementById('shareDlg').close();
+        F.openSettings('look');
+        await new Promise(r => setTimeout(r, 400));
+        check('Settings says whether the browser will keep your progress', w.document.getElementById('dsKeep').textContent.length > 20);
+        w.document.getElementById('settings').close();
+        check('Still no errors', !errors.length, errors.slice(0, 3).join(' · '));
+      } catch (e) { check('The new features run', false, e.message); }
+      summary();
+    })();
   }, 600);
   document.body.appendChild(frame);
 })();

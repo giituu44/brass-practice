@@ -27,9 +27,9 @@
     const out = [], start = monday(new Date());
     for (let w = n - 1; w >= 0; w--) {
       const from = new Date(start); from.setDate(from.getDate() - 7 * w);
-      let min = 0;
-      for (let i = 0; i < 7; i++) { const d = new Date(from); d.setDate(d.getDate() + i); const r = store.days[keyOf(d)]; if (r) min += r.sec / 60; }
-      out.push({ from, min: Math.round(min) });
+      let min = 0, play = 0;
+      for (let i = 0; i < 7; i++) { const d = new Date(from); d.setDate(d.getDate() + i); const r = store.days[keyOf(d)]; if (r) { min += r.sec / 60; play += (r.play || 0) / 60; } }
+      out.push({ from, min: Math.round(min), play: Math.round(play) });
     }
     return out;
   }
@@ -79,7 +79,7 @@
   // ---------- the page ----------
   function chart() {
     const ws = weeks(16), W = 640, H = 150, L = 32, B = 22;
-    const max = Math.max(30, ...ws.map(w => w.min));
+    const max = Math.max(30, ...ws.map(w => Math.max(w.min, w.play)));
     const bw = (W - L - 8) / ws.length;
     let s = `<svg viewBox="0 0 ${W} ${H}" class="prog-chart" role="img" aria-label="Minutes practised per week, last 16 weeks">`;
     for (const v of [0, Math.round(max / 2), max]) {
@@ -88,7 +88,11 @@
     }
     ws.forEach((w, i) => {
       const h = (w.min / max) * (H - B - 10), x = L + i * bw + 3;
-      s += `<g><rect x="${x}" y="${H - B - h}" width="${bw - 6}" height="${Math.max(h, w.min ? 2 : 0)}" rx="3" class="bar${i === ws.length - 1 ? ' now' : ''}"/><title>Week of ${fmt(w.from)}: ${w.min} min</title></g>`;
+      // Inside each bar, the part with sound coming out of the horn (heard by the mic).
+      const ph = (w.play / max) * (H - B - 10);
+      s += `<g><rect x="${x}" y="${H - B - h}" width="${bw - 6}" height="${Math.max(h, w.min ? 2 : 0)}" rx="3" class="bar${i === ws.length - 1 ? ' now' : ''}"/>`
+        + (w.play ? `<rect x="${x + 3}" y="${H - B - ph}" width="${Math.max(1, bw - 12)}" height="${Math.max(ph, 1)}" rx="2" class="bar played"/>` : '')
+        + `<title>Week of ${fmt(w.from)}: ${w.min} min${w.play ? `, ${w.play} of them playing` : ''}</title></g>`;
       if (i % 2 === ws.length % 2 || i === ws.length - 1) s += `<text x="${x + (bw - 6) / 2}" y="${H - 6}" text-anchor="middle" class="axis">${fmt(w.from)}</text>`;
     });
     return s + '</svg>';
@@ -111,10 +115,11 @@
 
   function render() {
     const ds = days(), total = ds.reduce((a, k) => a + store.days[k].sec, 0) / 60, st = streaks();
+    const play = Object.values(store.days).reduce((a, d) => a + (d.play || 0), 0) / 60;
     $('prSummary').innerHTML = [
       ['Practised', `${Math.round(total)} min`], ['Days', String(ds.length)], ['Streak', `${st.current} (best ${st.longest})`],
       ['Average day', ds.length ? `${Math.round(total / ds.length)} min` : '–'],
-    ].map(([a, b]) => `<div class="stat"><span class="stat-name">${a}</span><span class="stat-val">${b}</span></div>`).join('');
+    ].concat(play >= 1 ? [['Playing (mic)', `${Math.round(play)} min`]] : []).map(([a, b]) => `<div class="stat"><span class="stat-name">${a}</span><span class="stat-val">${b}</span></div>`).join('');
     $('prWeeks').innerHTML = chart();
     $('prRecords').innerHTML = records().map(([a, b]) => `<tr><th>${a}</th><td>${esc(b)}</td></tr>`).join('');
     const tp = tempos();
@@ -135,12 +140,13 @@
   function report() {
     const end = new Date(), start = new Date(end); start.setDate(start.getDate() - 6);
     const dayRows = [], done = {}, pieces = {};
-    let total = 0;
+    let total = 0, playing = 0;
     for (let i = 0; i < 7; i++) {
       const d = new Date(start); d.setDate(d.getDate() + i);
-      const r = store.days[keyOf(d)], m = r ? Math.round(r.sec / 60) : 0;
+      const r = store.days[keyOf(d)], m = r ? Math.round(r.sec / 60) : 0, p = r && r.play ? Math.round(r.play / 60) : 0;
       total += m;
-      dayRows.push(`<tr><td>${fmt(d, { weekday: 'short', month: 'short', day: 'numeric' })}</td><td>${m ? m + ' min' : r && r.n ? '< 1 min' : '—'}</td></tr>`);
+      playing += p;
+      dayRows.push(`<tr><td>${fmt(d, { weekday: 'short', month: 'short', day: 'numeric' })}</td><td>${m ? m + ' min' : r && r.n ? '< 1 min' : '—'}${p ? ` (${p} playing)` : ''}</td></tr>`);
       for (const [k, v] of Object.entries((r && r.done) || {})) done[k] = (done[k] || 0) + v;
     }
     for (const [id, h] of Object.entries(store.pieceHist || {})) {
@@ -165,7 +171,7 @@
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:3px 10px 3px 0;border-bottom:1px solid #eee;vertical-align:top}.sub{color:#666}.print{float:right}@media print{.print{display:none}}</style></head><body>
 <button class="print" onclick="print()">Print / save as PDF</button>
 <h1>Practice report</h1><p class="sub">${esc(TP.inst().name)} · ${fmt(start, { month: 'long', day: 'numeric' })} – ${fmt(end, { month: 'long', day: 'numeric', year: 'numeric' })} · from Brass Practice</p>
-<h2>Time: ${total} minutes</h2><table>${dayRows.join('')}</table>
+<h2>Time: ${total} minutes${playing ? ` (${playing} of them playing, as the mic heard it)` : ''}</h2><table>${dayRows.join('')}</table>
 <h2>Pieces and studies</h2>${pr.length ? `<table><tr><th>Piece</th><th>Runs</th><th>Best</th><th>Tempo</th></tr>${pr.join('')}</table>` : '<p class="sub">None this week.</p>'}
 <h2>Scales</h2><p>${scales.length ? scales.map(esc).join(' · ') : '<span class="sub">None this week.</span>'}</p>
 <h2>Other practice</h2><p>${act.length ? act.join(' · ') : '<span class="sub">—</span>'}</p>

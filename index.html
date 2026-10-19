@@ -59,6 +59,7 @@
           <label class="pill" title="Silent bars: does your pulse hold on its own?"><span>Gaps</span><select id="metroGap"><option value="">off</option><option value="1-1">play 1 · silent 1</option><option value="2-2">play 2 · silent 2</option><option value="3-1">play 3 · silent 1</option><option value="4-4">play 4 · silent 4</option></select></label>
           <label class="pill" title="A little faster every few bars, while it runs"><span>Speed up</span><select id="metroRamp"><option value="">off</option><option value="2-4">+2 every 4 bars</option><option value="4-4">+4 every 4 bars</option><option value="4-8">+4 every 8 bars</option><option value="5-2">+5 every 2 bars</option></select></label>
         </div>
+        <p class="sub tight metro-drift" id="metroDrift" hidden></p>
         <div class="pop-row">
           <button id="metroTap" class="pill">Tap</button>
           <button id="metroGo" class="pill primary">▶ Start</button>
@@ -101,6 +102,17 @@
       <section class="card">
         <div class="today-head">
           <h2>Goals</h2>
+          <div class="pop-row">
+          <details class="pop" id="tdRemind">
+            <summary class="pill ghost" title="A repeating practice time for your calendar">📅 Reminder</summary>
+            <div class="pop-body remind-form">
+              <p class="sub tight">A practice time in your calendar, every week on:</p>
+              <div class="rm-days" id="rmDays"></div>
+              <label class="pill"><span>at</span><input type="time" id="rmTime" class="num-input"></label>
+              <button id="rmSave" type="button" class="pill primary">Add to my calendar</button>
+              <p class="sub tight">It downloads a calendar file: open it and your calendar app adds the event, with a reminder 5 minutes before.</p>
+            </div>
+          </details>
           <details class="pop" id="tdGoalAdd">
             <summary class="pill ghost">＋ Add a goal</summary>
             <div class="pop-body goal-form">
@@ -112,6 +124,7 @@
               <button id="gSave" type="button" class="pill primary">Add goal</button>
             </div>
           </details>
+          </div>
         </div>
         <div id="tdGoals" class="goals"></div>
       </section>
@@ -247,7 +260,8 @@
             <label class="check" id="pcAccRow" hidden><input type="checkbox" id="pcAcc"> Piano accompaniment</label>
             <div class="pop-row" id="pcDuetRow" hidden>
               <label class="pill"><span>You play</span><select id="pcDuetPart"><option value="1">Part 1</option><option value="2">Part 2</option></select></label>
-              <label class="check"><input type="checkbox" id="pcDuet"> The app plays the other part</label>
+              <label class="check"><input type="checkbox" id="pcDuet"> Play the other part</label>
+              <label class="pill" id="pcDuetSrcRow" hidden title="Record yourself on the other part (with the mic), then play along with your own take"><span>by</span><select id="pcDuetSrc"></select></label>
             </div>
             <label class="check"><input type="checkbox" id="pcGuide"> Play every note for me (guide)</label>
             <label class="check"><input type="checkbox" id="pcLoop"> Loop</label>
@@ -258,6 +272,10 @@
               <label class="pill" id="pcBackingRow" title="For music without its own accompaniment"><span>Backing</span><select id="pcBacking"><option value="none">None</option><option value="drone">Drone on the key note</option><option value="chords">Chords (worked out)</option></select></label>
             </div>
             <label class="check" title="From the intonation map (Tuner): an alternate fingering that measured clearly closer to in tune"><input type="checkbox" id="pcMyF"> Show fingerings that sit better on my horn</label>
+            <div class="pop-row">
+              <button id="pcBreaths" class="pill ghost" title="Tap the notes you'll breathe after; with the mic, it checks where you really did">✎ Plan breaths</button>
+              <button id="pcShare" class="pill ghost" title="Send this piece as a link — the music is inside the link">🔗 Share</button>
+            </div>
             <div class="pop-row">
               <button id="pcResetTempo" class="link-btn">reset tempo</button>
               <button id="pcEdit" class="link-btn" hidden>Edit</button>
@@ -368,6 +386,17 @@
         <p id="bzMsg" class="feedback">&nbsp;</p>
       </section>
       </div>
+      <section class="card">
+        <h2>Sing, buzz, play</h2>
+        <p class="sub">Hear a note, sing it, buzz it on the mouthpiece, then play it — Arnold Jacobs’ “song and wind”: hear the pitch in your head first, and your lips find it. Sing in any comfortable octave; the mic checks each step.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Around</span><select id="sbNote"></select></label>
+          <label class="pill"><span>Notes</span><select id="sbRounds"><option value="4">4</option><option value="6">6</option><option value="8">8</option></select></label>
+          <button id="sbStart" class="pill primary">Start</button>
+        </div>
+        <div id="sbSteps" class="sb-steps"></div>
+        <p id="sbMsg" class="feedback">&nbsp;</p>
+      </section>
       <div class="today-row">
       <section class="card">
         <h2>Long-tone challenge</h2>
@@ -503,6 +532,18 @@
           <label class="check"><input type="checkbox" id="plRamp"> 5% faster each time round</label>
         </div>
         <p class="hint">Drag across the waveform to pick a passage; click to jump. <kbd>[</kbd> <kbd>]</kbd> set the loop, <kbd>−</kbd> <kbd>+</kbd> the speed, <kbd>Esc</kbd> back to the start.</p>
+        <div class="toolbar pl-music">
+          <label class="pill grow" title="The music this recording plays — it follows along once you've tapped the beat"><span>Music</span><select id="plPiece"></select></label>
+          <button id="plTap" class="pill ghost" title="As it plays, tap on every beat from the first beat of the music">Tap the beat <kbd>T</kbd></button>
+          <button id="plTapDone" class="pill primary" hidden>Done</button>
+          <span class="sub" id="plTapInfo"></span>
+        </div>
+        <div class="toolbar" id="plBarsRow" hidden>
+          <label class="pill"><span>Loop bars</span><select id="plFromBar"></select></label>
+          <label class="pill"><span>to</span><select id="plToBar"></select></label>
+          <button id="plLoopBars" class="pill ghost">Loop them</button>
+        </div>
+        <div id="plScore" class="score-box pl-score" hidden></div>
       </section>
     </div>
 
@@ -519,6 +560,7 @@
         <div id="prSummary" class="stats prog-summary"></div>
         <h3>Minutes per week</h3>
         <div id="prWeeks"></div>
+        <p class="sub tight">The darker part of each bar: time with sound coming out of the horn, when the mic was on.</p>
       </section>
       <div class="today-row">
         <section class="card"><h2>Personal records</h2><table id="prRecords" class="prog-table"></table></section>
@@ -658,7 +700,14 @@
         <span>Your progress lives in this browser. Recordings of your takes stay here too — they aren't in the backup file.</span>
         <button type="button" id="backupBtn" class="small-btn">⬇ Back up</button>
         <button type="button" id="restoreBtn" class="small-btn">⬆ Restore</button>
+        <button type="button" id="dsSend" class="small-btn" title="Send a backup to your phone, tablet or computer, then Restore it there">📤 Send to another device</button>
         <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+      </div>
+      <p class="sub tight" id="dsKeep"></p>
+      <div class="backup-row" id="dsSnapRow" hidden>
+        <span>A copy of your progress is kept each day (the last 7 days you opened the app). Go back to one:</span>
+        <select id="dsSnaps" class="num-input"></select>
+        <button type="button" id="dsRestore" class="small-btn">Go back</button>
       </div>
       </div>
       <div class="dialog-actions">
@@ -668,11 +717,59 @@
     </form>
   </dialog>
 
+  <dialog id="shareDlg" class="share-dlg">
+    <form method="dialog" onsubmit="return false">
+      <h2 id="shTitle">Share</h2>
+      <p class="sub">The music is inside the link itself — nothing is uploaded. Whoever opens it gets a copy in their own My pieces.</p>
+      <label class="check"><input type="checkbox" id="shGoal"> Add a goal to it (for a student): play it cleanly at a tempo</label>
+      <div class="pop-row" id="shGoalRow" hidden>
+        <label class="pill"><span>Tempo</span><input type="number" id="shBpm" min="30" max="240" class="num-input small-num"><small>bpm</small></label>
+        <label class="pill"><span>By (optional)</span><input type="date" id="shBy" class="num-input"></label>
+      </div>
+      <textarea id="shLink" class="text-input share-link" rows="3" readonly aria-label="The link"></textarea>
+      <p class="sub tight" id="shSize"></p>
+      <div class="dialog-actions">
+        <button type="button" id="shClose">Close</button>
+        <button type="button" id="shSend">Share…</button>
+        <button type="button" id="shCopy" class="primary">Copy link</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="audDlg" class="aud-dlg">
+    <form method="dialog" onsubmit="return false">
+      <h2>🎯 Mock audition</h2>
+      <p class="sub">Like the real thing: the pieces in a random order, one try each — no stopping to start again — and every one recorded. Afterwards you listen back and mark each one. It uses the mic (🎤); headphones help.</p>
+      <div id="audList" class="aud-list"></div>
+      <div class="pop-row">
+        <label class="pill"><span>How many</span><select id="audCount"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select></label>
+        <label class="check"><input type="checkbox" id="audMarked"> At the tempo marked in the music (not your practice tempo)</label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="audCancel">Cancel</button>
+        <button type="button" id="audGo" class="primary">Start</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="audResDlg" class="aud-dlg">
+    <form method="dialog" onsubmit="return false">
+      <h2>How did it go?</h2>
+      <p class="sub">Listen to each one as a panel would, give it a mark and a note on what to fix.</p>
+      <div id="audResList"></div>
+      <div class="dialog-actions">
+        <button type="button" id="audResClose">Close</button>
+        <button type="button" id="audResSave" class="primary">Save to my journal</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="libDlg" class="lib-dlg">
     <form method="dialog" onsubmit="return false">
       <div class="lib-head">
         <h2>Library</h2>
         <input type="search" id="libSearch" placeholder="Search pieces…" autocomplete="off">
+        <button type="button" id="audOpen" class="pill ghost" title="Several pieces in a random order, one try each, recorded — then listen back">🎯 Mock audition</button>
         <button value="close" class="icon-btn" aria-label="Close" formmethod="dialog" formnovalidate onclick="this.closest('dialog').close()">✕</button>
       </div>
       <div class="lib-chips" id="libChips"></div>
@@ -810,7 +907,7 @@
         <li><b>Today</b> — a routine sized to the time you have (10–45 min); <kbd>Space</kbd> starts the next step. Every other day the piece is the next study from your method books.</li>
         <li><b>Warm-up</b> — breathing, mouthpiece buzzing, long tones with a shape, tonguing, lip slurs and a range builder.</li>
         <li><b>Echo</b> — hear a short phrase, play it back by ear in the next bar.</li>
-        <li><b>Recordings</b> — play along with a real recording: loop a passage and slow it down without changing the pitch.</li>
+        <li><b>Recordings</b> — play along with a real recording: loop a passage and slow it down without changing the pitch. Pick its music and tap the beat once, and the music follows along.</li>
         <li><b>Progress</b> — your practice over months, records, tempo and tuning trends, and a weekly report for a teacher.</li>
         <li><b>Fingerings</b> — read a note, finger it. <b>Auto</b> moves on when you're right; <b>Timed</b> brings notes on the beat.</li>
         <li><b>Scales</b> — every major and minor, straight or in a pattern (thirds, groups of four, arpeggio), played along with the click (green on time, amber late, red wrong).</li>
@@ -848,16 +945,20 @@
   <script src="js/omr.js"></script>
   <script src="js/pieces-gen.js"></script>
   <script src="js/takes.js"></script>
+  <script src="js/datasafe.js"></script>
   <script src="js/mode-pieces.js"></script>
   <script src="js/pieces-library.js"></script>
+  <script src="js/audition.js"></script>
   <script src="js/journal.js"></script>
   <script src="js/import.js"></script>
   <script src="js/mode-today.js"></script>
   <script src="js/session.js"></script>
   <script src="js/goals.js"></script>
+  <script src="js/share.js"></script>
   <script src="js/mode-tuner.js"></script>
   <script src="js/mode-intonation.js"></script>
   <script src="js/mode-warmup.js"></script>
+  <script src="js/warmup-sbp.js"></script>
   <script src="js/mode-echo.js"></script>
   <script src="js/mode-player.js"></script>
   <script src="js/mode-progress.js"></script>

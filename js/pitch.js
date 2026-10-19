@@ -193,6 +193,8 @@ TP.mic = (() => {
       log.push(reading);
       if (log.length > 600) log.splice(0, 300);
       listeners.forEach(fn => fn(reading));
+      // Sound from the horn: counts as time playing (Progress, rest reminders).
+      if (reading.midi !== null && TP.played) TP.played(EVERY_MS / 1000);
     }, EVERY_MS);
   }
 
@@ -259,11 +261,51 @@ TP.mic = (() => {
     const c = log.filter(r => r.t >= t0 && r.t <= t1 && r.midi === midi).map(r => r.cents).sort((a, b) => a - b);
     return c.length >= 2 ? c[c.length >> 1] : null;
   }
+  // ---------- attacks ----------
+  // How a note began, from the readings around its start t (s): how long until the pitch
+  // sat within 25¢ of the note (settle, s; null if it never did), and where the first
+  // pitch was (from, cents from the note): well below = scooped up into it, more than
+  // a semitone away = started on another note (a split). `octaves`: any octave counts.
+  // `prev`: the note before, if any — slurred into, its last moments aren't this note's start.
+  function attackOf(readings, midi, t, dur, octaves = false, prev = null) {
+    const off = x => { let d = x.midi - midi; if (octaves) d = ((d % 12) + 18) % 12 - 6; return d * 100 + x.cents; };
+    const tail = x => prev !== null && prev !== midi && Math.abs(x.midi + x.cents / 100 - prev) <= 0.5;
+    const rs = readings.filter(x => x.t >= t - 0.06 && x.t <= t + Math.max(0.2, Math.min(dur, 0.6)) && x.midi !== null && !tail(x)).map(x => ({ t: x.t, c: off(x) }));
+    if (rs.length < 2) return null;
+    const k = rs.findIndex((x, i) => Math.abs(x.c) <= 25 && rs[i + 1] && Math.abs(rs[i + 1].c) <= 25);
+    return { settle: k < 0 ? null : Math.max(0, rs[k].t - t), from: Math.round(rs[0].c) };
+  }
+  // Many attacks summed up: the median time to settle, and how many scooped, came down
+  // from sharp, split or never settled.
+  function attackSummary(list) {
+    const a = list.filter(Boolean);
+    if (!a.length) return null;
+    const settled = a.filter(x => x.settle !== null).map(x => x.settle).sort((p, q) => p - q);
+    return {
+      n: a.length,
+      settleMs: settled.length ? Math.round(settled[settled.length >> 1] * 1000) : null,
+      scoops: a.filter(x => x.from <= -30 && x.from >= -110).length,
+      sharp: a.filter(x => x.from >= 30 && x.from <= 110).length,
+      splits: a.filter(x => Math.abs(x.from) > 110).length,
+      unsettled: a.length - settled.length,
+    };
+  }
+  function attackText(s) {
+    if (!s) return '';
+    const bits = [s.settleMs === null ? 'the pitch never settled'
+      : `settled on the pitch in ~${s.settleMs} ms` + (s.settleMs <= 80 ? ' (clean)' : s.settleMs > 150 ? ' (slow — aim to start right on the pitch)' : '')];
+    const of = k => (s.n > 1 ? `${k} of ${s.n}` : '');
+    if (s.scoops) bits.push(s.n > 1 ? `${of(s.scoops)} scooped up from flat` : 'scooped up from flat');
+    if (s.sharp) bits.push(s.n > 1 ? `${of(s.sharp)} came down from sharp` : 'came down from sharp');
+    if (s.splits) bits.push(s.n > 1 ? `${of(s.splits)} started on another note (split)` : 'started on another note (split)');
+    return bits.join(', ');
+  }
+
   // Same note — or with "any octave" on, the same note name in another octave.
   const matches = (got, want) => got !== null && (got === want || (TP.S.micAnyOctave && (got - want) % 12 === 0));
 
   return {
-    detect, analyse, start, stop, attach, heard, matches, centsOn, gate, noteStarts,
+    detect, analyse, start, stop, attach, heard, matches, centsOn, gate, noteStarts, attackOf, attackSummary, attackText,
     setLoose: on => { loose = !!on; },
     get source() { return source; },
     on: fn => listeners.push(fn),

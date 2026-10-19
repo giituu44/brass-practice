@@ -772,7 +772,7 @@ TP.score = (() => {
       },
       // A line through a note showing the pitch actually played over its length
       // (points: { f: 0–1 through the note, c: cents }; up = sharp, one staff step = 50¢).
-      trace(ev, points, ticks) {
+      trace(ev, points, ticks, cls = '') {
         const e = tl.events[ev], a = evX.get(ev);
         if (!e || e.midi === null || !a || points.length < 2) return;
         const b = posOfTick(e.start + ticks);
@@ -781,8 +781,32 @@ TP.score = (() => {
         const off = points.reduce((s, p) => s + Math.abs(p.c), 0) / points.length;
         a.svg.appendChild(el('polyline', {
           points: points.map(p => `${(a.x + (x2 - a.x) * p.f).toFixed(1)},${(y - Math.max(-60, Math.min(60, p.c)) * 0.12).toFixed(1)}`).join(' '),
-          class: 'ptrace' + (off > 25 ? ' off' : off > 12 ? ' close' : ''),
+          class: 'ptrace' + (cls ? ' ' + cls : off > 25 ? ' off' : off > 12 ? ' close' : ''),
         }));
+      },
+      // A breath mark (comma above the staff) after a note: one you planned, or one you took.
+      breath(ev, cls = '') {
+        const e = tl.events[ev], a = evX.get(ev);
+        if (!e || !a) return;
+        const b = posOfTick(e.start + e.dur);
+        const x = b && b.svg === a.svg && b.x > a.x ? (a.x + b.x) / 2 + 4 : a.x + 14;
+        a.svg.appendChild(el('text', { x, y: yOf(10) - 2, 'font-size': 22, 'text-anchor': 'middle', class: 'breath ' + cls }, ','));
+      },
+      // The note nearest a point on the screen (for tapping notes), or null.
+      eventAt(cx, cy) {
+        for (const svg of lineEls) {
+          const r = svg.getBoundingClientRect();
+          if (cy < r.top || cy > r.bottom || cx < r.left || cx > r.right) continue;
+          const p = svg.createSVGPoint();
+          p.x = cx; p.y = cy;
+          const q = p.matrixTransform(svg.getScreenCTM().inverse());
+          let best = null;
+          for (const [ev, at] of evX) {
+            if (at.svg === svg && tl.events[ev].midi !== null && (best === null || Math.abs(at.x - q.x) < Math.abs(evX.get(best).x - q.x))) best = ev;
+          }
+          return best;
+        }
+        return null;
       },
       clearTraces() { for (const s of lineEls) s.querySelectorAll('.ptrace').forEach(n => n.remove()); },
       setCurrent(ev, scroll = true) {

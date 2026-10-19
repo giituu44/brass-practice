@@ -59,6 +59,10 @@
   // ---------- current piece ----------
   let item = null, piece = null, tl = null, view = null;
   let lastTake = null;   // your last recorded run (mic), for "Hear my take"
+  let breathEdit = false;  // ✎ Plan breaths: tapping a note marks a breath after it
+  let cmp = null;          // two takes being compared: { a, b }
+  let duetTakes = [], duetTakeId = '';   // duets: your own takes of the other part, and the one playing it
+  let auditionHook = null; // a mock audition (js/audition.js) running through pieces
   let from = 0, to = 0;
 
   // Move a whole piece by octaves (for music written too high or low for the instrument).
@@ -129,6 +133,10 @@
   function open(id, keepRange) {
     stop();
     lastTake = null;
+    breathEdit = false;
+    $('pcBreaths').textContent = '✎ Plan breaths';
+    $('pcScore').classList.remove('breath-edit');
+    cmp = null;
     item = findItem(id) || findItem(LIBRARY[0].id);
     S.pieceId = item.id;
     save();
@@ -156,6 +164,8 @@
     $('pcBackingRow').hidden = !!(item.acc || item.duet);
     $('pcDuetPart').value = String(S.duetPart === 2 ? 2 : 1);
     partnerTl = null;
+    fillDuetSrc();
+    $('pcShare').hidden = !!(item.sight || item.slur);
     const sib = TP.piecesLib.siblings();
     $('pcNav').hidden = sib.length < 2;
     $('pcPrev').disabled = sib.indexOf(item.id) <= 0;
@@ -197,6 +207,26 @@
   TP.openPiece = (id, keepRange) => open(id, keepRange);
   TP.stopPiece = () => stop();
   TP.currentPiece = () => item;
+  // For a mock audition (js/audition.js).
+  TP.pc = {
+    open, say, stop, idle,
+    start: kind => start(kind),
+    setTempo: v => setTempo(v, false),
+    get running() { return running; },
+    setAudition(h) { auditionHook = h; },
+  };
+  // A piece as the Pieces tab draws it (your instrument's written pitch, your key and
+  // octave), for following along elsewhere (the Recordings tab).
+  TP.pieceForView = id => {
+    const it = findItem(id);
+    if (!it || it.sight || it.slur) return null;
+    const keep = keySemis;
+    let w = toWritten(it.piece, TP.inst().transpose);
+    if (keyOf(id) !== null) w = toKey(w, keyOf(id));
+    keySemis = keep;
+    const p = shifted(w, store.pieceShift[id] !== undefined ? store.pieceShift[id] : bestOctave(w));
+    return { piece: p, title: it.title };
+  };
 
   // ---------- history: accuracy and tempo of your runs on this piece ----------
   const NS = 'http://www.w3.org/2000/svg';
@@ -208,7 +238,7 @@
     const takesBox = document.createElement('div');
     takesBox.className = 'takes';
     const forId = item.id;
-    if (TP.takes) TP.takes.render(takesBox, forId).then(n => { if (n && item && item.id === forId) $('pcHist').hidden = false; });
+    if (TP.takes) TP.takes.render(takesBox, forId, { onCompare: compareTakes }).then(n => { if (n && item && item.id === forId) $('pcHist').hidden = false; });
     if (runs.length < 2) { $('pcHist').open = false; $('pcHistBody').textContent = ''; $('pcHistBody').appendChild(takesBox); $('pcSpark').textContent = ''; return; }
     // Sparkline in the button: the last 20 runs' accuracy.
     const last = runs.slice(-20), sp = $('pcSpark');
@@ -342,6 +372,10 @@
         if (f !== null && !hinted.has(n.i) && !done.has(n.m + ':' + n.midi)) { done.add(n.m + ':' + n.midi); view.annotate(n.i, TP.fmtFingering(f), 'tip'); }
       }
     }
+    // The breaths you planned (✎ Plan breaths).
+    const planned = plan();
+    for (const n of tl.notes) if (planned.includes(n.i)) view.breath(n.last, 'planned');
+    if (cmp && (!running || running.kind === 'compare')) drawCompare();
     markRange();
     box.querySelectorAll('.mhit').forEach(r => r.addEventListener('click', e => {
       const m = Number(r.dataset.m);
@@ -512,6 +546,7 @@
 
   async function start(kind) {
     stop();
+    cmp = null;
     draw();
     const sel = selection();
     if (!sel.notes.length) { say('No notes in that range.'); return; }
@@ -520,6 +555,8 @@
     const ctx = TP.audio();
     TP.logValves();
     await TP.preload(sel.notes.map(n => n.midi));
+    // A duet with your own take of the other part: at the tempo it was recorded at.
+    const partnerTake = item.partner && S.pieceDuet && duetTakeId ? await loadPartnerTake(sel) : null;
     const r = TP.makeRun();
     const spt = 60 / S.pieceBpm / SC.TPQ;               // seconds per tick
     const bt = SC.beatTicks(piece);
@@ -528,7 +565,7 @@
     const countBeats = perBar * (S.countIn === 2 ? 2 : 1);   // Settings: 2 bars gives time to breathe
     const t0 = ctx.currentTime + 0.3;
     const tStart = t0 + countBeats * bt * spt;
-    running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], missed: [], readings: usingMic() ? [] : null };
+    running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], missed: [], readings: usingMic() ? [] : null, sel, tStart, spt };
     if (kind === 'play' && usingMic()) running.take = startTake({ tStart, startT: sel.startT, spt });
     TP.setSubmitLabel('Stop');
     follow(r, tStart, sel.startT, spt);
@@ -558,7 +595,8 @@
       if (mic && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Backing + mic: use headphones, or the mic will hear it.', 7000); }
     }
     if (item.partner && S.pieceDuet) {
-      schedulePartner(r, sel, tStart, spt);
+      if (partnerTake) scheduleTake(r, partnerTake, sel, tStart, spt);
+      else schedulePartner(r, sel, tStart, spt);
       if (mic && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Duet + mic: use headphones, or the mic will hear the other part.', 7000); }
     }
     sel.notes.forEach((n, k) => {
@@ -612,7 +650,7 @@
       const dest = ctx.createMediaStreamDestination();
       src.connect(dest);
       const rec = new MediaRecorder(dest.stream);
-      const take = { ...info, rec, dest, src, chunks: [], t0: ctx.currentTime, pieceId: item.id };
+      const take = { ...info, rec, dest, src, chunks: [], t0: ctx.currentTime, pieceId: item.id, part: item.duet ? (S.duetPart === 2 ? 2 : 1) : undefined };
       rec.ondataavailable = e => { if (e.data.size) take.chunks.push(e.data); };
       rec.start();
       return take;
@@ -623,10 +661,14 @@
     take.rec.onstop = async () => {
       try { take.src.disconnect(take.dest); } catch (e) { /* already gone */ }
       if (!take.chunks.length) return;
-      // A finished, graded run is kept with your other takes of this piece.
+      const type = take.rec.mimeType || 'audio/webm';
+      take.blob = new Blob(take.chunks, { type });
+      if (take.onBlob) take.onBlob(take.blob);
+      // A finished, graded run is kept with your other takes of this piece — with where the
+      // music starts in it, so it can be lined up again (duets, comparing takes).
       if (take.pct !== undefined && TP.takes) {
-        const type = take.rec.mimeType || 'audio/webm';
-        TP.takes.add(take.pieceId, { at: Date.now(), pct: take.pct, bpm: take.bpm, bars: take.bars, type, blob: new Blob(take.chunks, { type }) })
+        TP.takes.add(take.pieceId, { at: Date.now(), pct: take.pct, bpm: take.bpm, bars: take.bars, type, blob: take.blob,
+          lead: take.tStart - take.t0, startT: take.startT, spt: take.spt, part: take.part, trace: take.trace })
           .then(() => { if (item && item.id === take.pieceId) renderHist(); }, () => {
             if (!takesWarned) { takesWarned = true; TP.toast('This browser won’t keep recordings here, so takes aren’t saved — use ⬇ Save to keep one.', 7000); }
           });
@@ -680,6 +722,203 @@
       if (view) view.setCurrent(null);
       idle();
     };
+  }
+
+  // ---------- duets with yourself: your take of the other part plays along ----------
+  // Takes of a duet part (those kept with where the music starts in them).
+  function fillDuetSrc() {
+    const sel = $('pcDuetSrc'), forId = item.id;
+    sel.textContent = '';
+    sel.add(new Option('the app', ''));
+    duetTakes = [];
+    $('pcDuetSrcRow').hidden = true;
+    if (!item.duet || !TP.takes) return;
+    const mine = S.duetPart === 2 ? 2 : 1;
+    TP.takes.list(forId).then(all => {
+      if (!item || item.id !== forId) return;
+      duetTakes = all.filter(t => t.part && t.part !== mine && t.startT !== undefined);
+      for (const t of duetTakes) sel.add(new Option(`my take of part ${t.part} · ${new Date(t.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${t.pct}% at ${t.bpm} bpm`, String(t.id)));
+      if (!duetTakes.some(t => String(t.id) === duetTakeId)) duetTakeId = '';
+      sel.value = duetTakeId;
+      $('pcDuetSrcRow').hidden = !duetTakes.length;
+    }, () => {});
+  }
+  const decoded = new Map();   // take id -> AudioBuffer
+  async function bufferOf(t) {
+    if (!decoded.has(t.id)) decoded.set(t.id, await TP.audio().decodeAudioData(await t.blob.arrayBuffer()));
+    return decoded.get(t.id);
+  }
+  // Which ticks a take covers.
+  function takeSpan(t) {
+    if (!t.bars) return [0, tl.total];
+    const a = tl.measureStarts[t.bars[0] - 1] || 0, b = tl.measureStarts[t.bars[1]];
+    return [a, b === undefined ? tl.total : b];
+  }
+  async function loadPartnerTake(sel) {
+    const t = duetTakes.find(x => String(x.id) === duetTakeId);
+    if (!t) return null;
+    const [a, b] = takeSpan(t);
+    if (sel.startT < a || sel.endT > b) { TP.toast(`Your take covers bars ${t.bars[0]}–${t.bars[1]} only, so the app plays the other part here.`, 6000); return null; }
+    if (t.bpm !== S.pieceBpm) { setTempo(t.bpm, false); TP.toast(`Playing at ${t.bpm} bpm, the tempo of your take.`, 5000); }
+    try { return { take: t, buffer: await bufferOf(t) }; } catch (e) { TP.toast('Couldn’t play that take back, so the app plays the other part.', 6000); return null; }
+  }
+  function scheduleTake(r, pt, sel, tStart, spt) {
+    const ctx = TP.audio(), t = pt.take;
+    // Where this passage starts in the recording — plus the delays it was recorded with
+    // (out through the speakers, back in through the mic), so it lands with the click.
+    const fix = (ctx.outputLatency || ctx.baseLatency || 0) + (S.micLatencyMs || 0) / 1000;
+    let pos = t.lead + (sel.startT - t.startT) * t.spt + fix, when = tStart;
+    if (pos < 0) { when -= pos; pos = 0; }
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = pt.buffer;
+    g.gain.value = 0.9;
+    src.connect(g);
+    g.connect(ctx.destination);
+    src.start(when, pos);
+    src.stop(tStart + (sel.endT - sel.startT) * spt + 0.3);
+    r.add(src);
+  }
+
+  // ---------- compare two takes: both pitch lines on the music, and switch between them ----------
+  function compareTakes(pair) {
+    if (running && running.kind === 'compare') stop();
+    document.querySelectorAll('.cmp-box').forEach(e => e.remove());
+    if (view) view.clearTraces();
+    cmp = pair ? { a: pair[0], b: pair[1] } : null;
+    if (!cmp) return;
+    drawCompare();
+    say('Comparing two takes: the blue line is A, the orange one B. Play either, and switch while it plays.');
+  }
+  // (Again after the music is redrawn.)
+  function drawCompare() {
+    document.querySelectorAll('.cmp-box').forEach(e => e.remove());
+    for (const [t, cls] of [[cmp.a, 'ta'], [cmp.b, 'tb']]) {
+      for (const tr of t.trace || []) {
+        const pts = [];
+        for (let j = 0; j + 1 < tr.p.length; j += 2) pts.push({ f: tr.p[j], c: tr.p[j + 1] });
+        view.trace(tr.i, pts, tr.d, cls);
+      }
+    }
+    const day = t => `${new Date(t.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${t.pct}% at ${t.bpm} bpm`;
+    const box = document.createElement('div');
+    box.className = 'tune-report cmp-box';
+    box.innerHTML = '<b>Compare</b> · <span class="cmp-a">A</span> <span class="cmp-when"></span> · <span class="cmp-b">B</span> <span class="cmp-when"></span>'
+      + `${cmp.a.trace || cmp.b.trace ? '' : ' (no pitch lines: these takes were kept before the app saved them)'}<br>`
+      + '<button type="button" class="pill" data-k="a">▶ A</button> <button type="button" class="pill" data-k="b">▶ B</button> <button type="button" class="pill ghost" data-k="x">⇄ Switch <kbd>X</kbd></button>'
+      + ' <span class="sub">Switching keeps your place in the music.</span>';
+    const when = box.querySelectorAll('.cmp-when');
+    when[0].textContent = day(cmp.a);
+    when[1].textContent = day(cmp.b);
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
+      e.currentTarget.blur();
+      const k = b.dataset.k;
+      if (k === 'x') cmpSwitch();
+      else if (running && running.kind === 'compare' && running.which === k) { stop(); idle(); }
+      else cmpPlay(k);
+    }));
+    $('pcFeedback').after(box);
+  }
+  async function cmpPlay(which, tick) {
+    if (!cmp) return;
+    const t = cmp[which];
+    let buf;
+    try { buf = await bufferOf(t); } catch (e) { TP.toast('Couldn’t play that take.', 4000); return; }
+    stop();
+    const ctx = TP.audio();
+    await ctx.resume();
+    if (tick === undefined) tick = Math.max(cmp.a.startT, cmp.b.startT);
+    const pos = Math.max(0, t.lead + (tick - t.startT) * t.spt);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    const at = ctx.currentTime + 0.05;
+    src.start(at, pos);
+    const r = { stop() { try { src.stop(); } catch (e) { /* done */ } } };
+    running = { kind: 'compare', r, which, at, tick, spt: t.spt };
+    TP.setSubmitLabel('Stop');
+    follow(r, at, tick, t.spt);
+    document.querySelectorAll('.cmp-box [data-k]').forEach(b => b.classList.toggle('primary', b.dataset.k === which));
+    src.onended = () => { if (running && running.r === r) { running = null; if (view) view.setCurrent(null); idle(); } };
+  }
+  // The other take, from the same place in the music.
+  function cmpSwitch() {
+    if (!cmp) return;
+    if (!running || running.kind !== 'compare') { cmpPlay('a'); return; }
+    const tick = running.tick + (TP.audio().currentTime - running.at) / running.spt;
+    cmpPlay(running.which === 'a' ? 'b' : 'a', tick);
+  }
+
+  // ---------- breaths: the ones you plan, and the ones the mic hears you take ----------
+  const plan = () => (item && store.breaths && store.breaths[item.id]) || [];
+  // Phrases: notes from one breath (or a rest of an eighth or more) to the next.
+  function phrases() {
+    const cut = new Set(plan()), spt = 60 / S.pieceBpm / SC.TPQ, out = [];
+    let cur = null, prev = null;
+    for (const n of tl.notes) {
+      if (!cur || n.start - (prev.start + prev.dur) >= SC.TPQ / 2 || cut.has(prev.i)) { cur = { a: n, b: n }; out.push(cur); } else cur.b = n;
+      prev = n;
+    }
+    return out.map(p => ({ a: p.a, b: p.b, sec: (p.b.start + p.b.dur - p.a.start) * spt }));
+  }
+  function sayBreaths() {
+    const ps = phrases(), long = ps.reduce((x, p) => (!x || p.sec > x.sec ? p : x), null);
+    const bars = p => (p.a.m === p.b.m ? `bar ${p.a.m + 1}` : `bars ${p.a.m + 1}–${p.b.m + 1}`);
+    say(`Tap a note to breathe after it (tap again to take it away). ${plan().length} planned`
+      + (long ? ` · longest phrase ${long.sec.toFixed(1)} s at ${S.pieceBpm} bpm (${bars(long)})` : '') + ' · ✓ Done planning when finished.');
+  }
+  // After a mic run: where you stopped for breath (a gap of a quarter second or more where the
+  // music runs straight on), against where you planned to.
+  function breathReport(run) {
+    if (!run || !run.readings || !run.readings.length || !run.sel) return;
+    const planned = new Set(plan()), notes = run.sel.notes;
+    const at = n => run.tStart + (n.start - run.sel.startT) * run.spt;
+    const took = [], unplanned = [], skipped = [];
+    let due = 0;
+    for (let k = 0; k + 1 < notes.length; k++) {
+      const a = notes[k], b = notes[k + 1];
+      if (b.start > a.start + a.dur) continue;   // a rest: breathe there freely
+      if (planned.has(a.i)) due++;
+      const tb = at(b), from = Math.max(tb - 0.6, at(a) + 0.08);
+      let quiet = 0, most = 0;
+      for (const x of run.readings) {
+        if (x.t < from || x.t > tb + 0.03) continue;
+        if (x.midi === null) { quiet += 0.04; most = Math.max(most, quiet); } else quiet = 0;
+      }
+      if (most >= 0.24) { took.push(a); if (!planned.has(a.i)) unplanned.push(a); } else if (planned.has(a.i)) skipped.push(a);
+    }
+    if (!took.length && !due) return;
+    for (const n of unplanned) view.breath(n.last, 'unplanned');
+    const where = list => [...new Set(list.map(n => n.m + 1))].slice(0, 6).map(m => `bar ${m}`).join(', ');
+    const box = document.createElement('div');
+    box.className = 'tune-report breath-report';
+    box.innerHTML = '<b>Breaths</b> · ';
+    const text = due
+      ? `${due - skipped.length} of ${due} where you planned` + (unplanned.length ? ` · ${unplanned.length} more (marked in red): ${where(unplanned)}` : ' · none anywhere else')
+        + (skipped.length ? ` · played through your breath in ${where(skipped)}` : '')
+      : `you breathed (or left a gap) in ${where(took)}. ✎ Plan breaths (Options) to mark where you mean to.`;
+    box.appendChild(document.createTextNode(text));
+    $('pcFeedback').after(box);
+  }
+
+  // ---------- attacks: does each note start right on its pitch? ----------
+  function attackReport(run) {
+    if (!run || !run.readings || run.traces.length < 4) return;
+    const list = run.traces.map(({ n, t, dur }, k) => {
+      // From where the note really began, if you were a little early.
+      const first = run.readings.find(x => x.t >= t - 0.15 && x.t <= t + 0.25 && TP.mic.matches(x.midi, n.midi));
+      const prev = k ? run.traces[k - 1].n.midi : null;
+      const a = TP.mic.attackOf(run.readings, n.midi, first ? Math.min(t, first.since) : t, dur, S.micAnyOctave, prev);
+      if (a) a.m = n.m;
+      return a;
+    });
+    const s = TP.mic.attackSummary(list);
+    if (!s) return;
+    const scoopBars = [...new Set(list.filter(a => a && a.from <= -30 && a.from >= -110).map(a => a.m + 1))].slice(0, 6);
+    const box = document.createElement('div');
+    box.className = 'tune-report attack-report';
+    box.innerHTML = '<b>Attacks</b> · ';
+    box.appendChild(document.createTextNode(TP.mic.attackText(s) + (scoopBars.length ? ` (bar${scoopBars.length > 1 ? 's' : ''} ${scoopBars.join(', ')})` : '') + '.'));
+    $('pcFeedback').after(box);
   }
 
   // Backing for music without its own: a drone on the key note, or simple chords
@@ -756,6 +995,17 @@
   // With the mic, after a run: a line through each note you played, showing your pitch
   // over its length (up = sharp). Scoops, sags and late centring show at a glance.
   TP.mic.on(x => { if (running && running.readings) running.readings.push(x); });
+  // The same lines, compactly, kept with the take: [{ i, d, p: [f, c, f, c…] }].
+  function traceData(run) {
+    if (!run || !run.readings || !run.traces.length) return undefined;
+    return run.traces.map(({ n, t, dur }) => {
+      const p = [];
+      for (const x of run.readings) {
+        if (x.t >= t && x.t <= t + dur && x.midi !== null && Math.abs(x.midi - n.midi) <= 1) p.push(Math.round((x.t - t) / dur * 100) / 100, x.cents + 100 * (x.midi - n.midi));
+      }
+      return { i: n.i, d: n.dur, p };
+    }).filter(x => x.p.length >= 4);
+  }
   function drawTraces(run) {
     if (!run.readings || !run.traces.length) return;
     for (const { n, t, dur } of run.traces) {
@@ -790,7 +1040,7 @@
     const perfect = res.filter(g => g === 'perfect').length, late = res.filter(g => g === 'late').length;
     const pct = Math.round(((perfect + 0.6 * late) / total) * 100);
     // The recording finishes saving a moment later; it's kept with this score.
-    if (take) Object.assign(take, { pct, bpm: S.pieceBpm, bars: from === 0 && to === piece.measures.length - 1 ? null : [from + 1, to + 1] });
+    if (take) Object.assign(take, { pct, bpm: S.pieceBpm, bars: from === 0 && to === piece.measures.length - 1 ? null : [from + 1, to + 1], trace: traceData(running) });
     const stars = pct >= 95 ? '★★★' : pct >= 80 ? '★★☆' : pct >= 60 ? '★☆☆' : '☆☆☆';
     const whole = from === 0 && to === piece.measures.length - 1;
     TP.markDone('piece');
@@ -821,6 +1071,14 @@
     renderInfo();
     let msg = `${stars}  ${pct}% · ${perfect} on time, ${late} late, ${total - perfect - late} missed`;
     if (best) msg += ' — personal best!';
+    // A mock audition: one try, then on to the next piece.
+    if (auditionHook && running) {
+      drawTraces(running);
+      running = null;
+      TP.setSubmitLabel('Start');
+      auditionHook.finished({ pct, bpm: S.pieceBpm, msg, take });
+      return;
+    }
     if (wasLoop && running) {
       // Tempo trainer: a clean run earns the next one 4 bpm faster.
       if (S.pieceRamp && pct >= 95) { setTempo(S.pieceBpm + 4); msg += ` · clean! → ${S.pieceBpm} bpm`; }
@@ -837,6 +1095,8 @@
     else if (pct >= 80) offerNext();
     if (tune.length >= 3) tuningReport(tune);
     dynamicsReport(done);
+    attackReport(done);
+    breathReport(done);
   }
   function rememberTrouble(bars, pct) {
     store.trouble = store.trouble || {};
@@ -1031,7 +1291,9 @@
   });
 
   function submit() {
+    if (auditionHook && !running && auditionHook.go()) return;
     if (running && running.kind === 'wait') { waitCheck(); return; }
+    if (running && running.kind === 'compare') { stop(); idle(); return; }
     if (running) { stop(); draw(); idle(); return; }
     start(S.pieceMode);
   }
@@ -1053,7 +1315,37 @@
     });
   }
   $('pcWhole').addEventListener('click', () => { from = 0; to = piece.measures.length - 1; fillRange(); markRange(); });
-  $('pcDuetPart').addEventListener('change', e => { e.target.blur(); S.duetPart = Number(e.target.value); save(); open(item.id, true); });
+  $('pcDuetPart').addEventListener('change', e => { e.target.blur(); S.duetPart = Number(e.target.value); duetTakeId = ''; save(); open(item.id, true); });
+  $('pcDuetSrc').addEventListener('change', e => {
+    e.target.blur();
+    duetTakeId = e.target.value;
+    if (duetTakeId && !S.pieceDuet) { S.pieceDuet = true; $('pcDuet').checked = true; save(); }
+    optionsSummary();
+  });
+  // ✎ Plan breaths: tap notes to mark a breath after them; the feedback line keeps the
+  // longest phrase (seconds at this tempo) in view.
+  $('pcBreaths').addEventListener('click', e => {
+    e.currentTarget.blur();
+    if (running) return;
+    breathEdit = !breathEdit;
+    $('pcBreaths').textContent = breathEdit ? '✓ Done planning' : '✎ Plan breaths';
+    $('pcScore').classList.toggle('breath-edit', breathEdit);
+    if (breathEdit) { $('pcMore').open = false; sayBreaths(); } else idle();
+  });
+  $('pcScore').addEventListener('click', e => {
+    if (!breathEdit || running || !view) return;
+    e.stopPropagation();
+    const ev = view.eventAt(e.clientX, e.clientY);
+    const n = ev === null ? null : tl.notes.find(x => ev >= x.i && ev <= x.last);
+    if (!n) return;
+    const list = store.breaths[item.id] || (store.breaths[item.id] = []);
+    const k = list.indexOf(n.i);
+    if (k >= 0) list.splice(k, 1); else list.push(n.i);
+    if (!list.length) delete store.breaths[item.id];
+    save();
+    draw();
+    sayBreaths();
+  }, true);
   $('pcMyF').addEventListener('change', e => { e.target.blur(); S.myFingerings = e.target.checked; save(); if (!running) draw(); });
   $('pcHints').addEventListener('change', e => { e.target.blur(); S.pieceHints = e.target.value; save(); optionsSummary(); if (!running) draw(); });
   $('pcBacking').addEventListener('change', e => { e.target.blur(); S.pieceBacking = e.target.value; save(); optionsSummary(); });
@@ -1125,7 +1417,12 @@
     },
     key(k) {
       if (k === ' ' || k === 'enter') { submit(); return true; }
+      if (k === 'escape' && breathEdit) { $('pcBreaths').click(); return true; }
+      if (k === 'escape' && auditionHook && running && running.kind === 'play') { const tk = running.take; stop(); auditionHook.stopped(tk); return true; }
+      if (k === 'escape' && running && running.kind === 'compare') { stop(); idle(); return true; }
+      if (k === 'escape' && auditionHook && !running) { auditionHook.quit(); return true; }
       if (k === 'escape') { stop(); draw(); idle(); return true; }
+      if (k === 'x' && cmp) { cmpSwitch(); return true; }
       if (k === 'h') { this.hear(); return true; }
       if (k === 'p' && lastTake && !running) { replay(); return true; }
       if (k === 'b' && !running) { TP.piecesLib.openLibrary(); return true; }

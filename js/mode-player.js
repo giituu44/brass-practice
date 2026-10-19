@@ -4,7 +4,7 @@
 // browser (IndexedDB), each with its own loop and speed.
 (() => {
   'use strict';
-  const { $ } = TP;
+  const { $, store } = TP;
   const audio = new Audio();
   audio.preservesPitch = true;
   audio.mozPreservesPitch = true;
@@ -62,6 +62,8 @@
     $('plSpeed').value = String(cur.speed || 1);
     $('plLoop').checked = cur.a !== undefined && cur.b !== undefined;
     renderList();
+    fillPieces();
+    loadMusic();
     // The waveform: the loudest sample in each of a few hundred slices.
     try {
       const buf = await TP.audio().decodeAudioData(await rec.blob.arrayBuffer());
@@ -96,6 +98,11 @@
       g.fillStyle = css('--brass');
       g.fillRect(audio.currentTime / D * W - 1, 0, 2, H);
     }
+    // The music follows (once you've tapped the beat).
+    if (mv && mv.view && cur && cur.beats && cur.beats.length >= 2) {
+      const tick = TP.beatMap.tick(cur.beats, audio.currentTime, mv.bt);
+      mv.view.playhead(tick !== null && tick >= 0 && tick <= mv.tl.total ? tick : null);
+    }
     $('plPos').textContent = fmt(audio.currentTime);
     $('plDur').textContent = fmt(D);
     $('plLoopTxt').textContent = cur && cur.a !== undefined && cur.b !== undefined ? `loop ${fmt(cur.a)}–${fmt(cur.b)}` : 'drag on the waveform to pick a loop';
@@ -127,7 +134,7 @@
     if (![...$('plSpeed').options].some(o => o.value === String(v))) $('plSpeed').add(new Option(Math.round(v * 100) + '%', String(v), true, true));
     keep();
   }
-  // The loop and speed are kept with the recording.
+  // The loop and speed (and the music and your beat taps) are kept with the recording.
   function keep() {
     if (!cur || cur.id === undefined) return;
     const { url, peaks, duration, ...rec } = cur;
@@ -141,6 +148,110 @@
     keep();
     draw();
   }
+
+  // ---------- the music, following the recording ----------
+  // Pick the piece, then tap along once (T on every beat, from the first beat of the music):
+  // your taps line the recording up with the music, so the music follows as it plays, a
+  // click on a bar jumps there, and loops can be chosen by bar number.
+  let mv = null, tapping = null;   // { piece, tl, bt, view }; your taps so far
+  function fillPieces() {
+    const sel = $('plPiece');
+    sel.textContent = '';
+    sel.add(new Option('none', ''));
+    const group = (label, items) => {
+      if (!items.length) return;
+      const g = document.createElement('optgroup');
+      g.label = label;
+      for (const [id, t] of items) g.appendChild(new Option(t, id));
+      sel.appendChild(g);
+    };
+    group('My pieces', store.myPieces.map(p => [p.id, p.title]));
+    const cats = {};
+    for (const p of LIBRARY) (cats[p.book || p.cat] = cats[p.book || p.cat] || []).push([p.id, p.title]);
+    for (const [c, items] of Object.entries(cats)) group(c, items);
+    sel.value = (cur && cur.pieceId) || '';
+  }
+  function loadMusic() {
+    mv = null;
+    $('plScore').hidden = true;
+    $('plBarsRow').hidden = true;
+    const pv = cur && cur.pieceId && TP.pieceForView(cur.pieceId);
+    if (pv) {
+      mv = { piece: pv.piece, tl: TP.score.timeline(pv.piece), bt: TP.score.beatTicks(pv.piece) };
+      $('plScore').hidden = false;
+      if ($('plScore').clientWidth) drawMusic();
+      for (const id of ['plFromBar', 'plToBar']) {
+        const s = $(id);
+        s.textContent = '';
+        pv.piece.measures.forEach((_, i) => s.add(new Option(String(i + 1), i)));
+      }
+      $('plToBar').value = String(pv.piece.measures.length - 1);
+      $('plBarsRow').hidden = !(cur.beats && cur.beats.length >= 2);
+    }
+    tapInfo();
+  }
+  function drawMusic() {
+    if (!mv) return;
+    mv.view = TP.score.render($('plScore'), mv.piece, { width: $('plScore').clientWidth - 4 });
+    // Click a bar: jump there in the recording.
+    $('plScore').querySelectorAll('.mhit').forEach(r => r.addEventListener('click', () => {
+      if (!cur.beats || cur.beats.length < 2) { TP.toast('Tap the beat first, so the app knows where each bar is.', 5000); return; }
+      audio.currentTime = Math.max(0, TP.beatMap.time(cur.beats, mv.tl.measureStarts[Number(r.dataset.m)], mv.bt));
+      draw();
+    }));
+  }
+  function tapInfo(text) {
+    $('plTapInfo').textContent = text !== undefined ? text
+      : !mv ? 'Pick the music to have it follow along.'
+        : cur.beats && cur.beats.length >= 2 ? `${cur.beats.length} beats tapped — click a bar to jump there.` : 'Then tap the beat once, so the music can follow.';
+  }
+  function tapStart() {
+    if (!cur) return;
+    tapping = [];
+    $('plTap').textContent = 'Tap ●';
+    $('plTapDone').hidden = false;
+    $('plLoop').checked = false;
+    audio.currentTime = 0;
+    play();
+    tapInfo('Tap T (or ● ) on every beat, from the first beat of the music — count a pickup’s beats too. Done when you like: it carries on at your last tempo.');
+  }
+  function tap() {
+    if (!tapping) return;
+    tapping.push(Math.round(audio.currentTime * 1000) / 1000);
+    tapInfo(`${tapping.length} beat${tapping.length === 1 ? '' : 's'}…`);
+  }
+  function tapEnd() {
+    const t = tapping;
+    tapping = null;
+    $('plTap').textContent = 'Tap the beat';
+    $('plTapDone').hidden = true;
+    if (t && t.length >= 4) {
+      cur.beats = t;
+      keep();
+      $('plBarsRow').hidden = !mv;
+    } else if (t) TP.toast('Tap at least 4 beats, and it can follow.', 5000);
+    tapInfo();
+    draw();
+  }
+  $('plTap').addEventListener('click', e => { e.currentTarget.blur(); if (tapping) tap(); else tapStart(); });
+  $('plTapDone').addEventListener('click', e => { e.currentTarget.blur(); tapEnd(); });
+  $('plPiece').addEventListener('change', e => {
+    e.target.blur();
+    if (!cur) return;
+    cur.pieceId = e.target.value || undefined;
+    keep();
+    loadMusic();
+  });
+  $('plLoopBars').addEventListener('click', () => {
+    if (!mv || !cur.beats) return;
+    const a = Number($('plFromBar').value), b = Math.max(a, Number($('plToBar').value)), ms = mv.tl.measureStarts;
+    cur.a = Math.max(0, TP.beatMap.time(cur.beats, ms[a], mv.bt));
+    cur.b = Math.min(dur() || Infinity, TP.beatMap.time(cur.beats, b + 1 < ms.length ? ms[b + 1] : mv.tl.total, mv.bt));
+    $('plLoop').checked = true;
+    audio.currentTime = cur.a;
+    keep();
+    draw();
+  });
 
   // Drag on the waveform: a loop. Click: jump there.
   const timeAt = e => { const r = $('plWave').getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur(); };
@@ -164,17 +275,36 @@
   $('plSpeed').addEventListener('change', e => { e.target.blur(); setSpeed(Number(e.target.value)); });
   $('plLoop').addEventListener('change', e => { e.target.blur(); draw(); });
   audio.addEventListener('ended', () => { pause(); draw(); });
-  window.addEventListener('resize', () => { if (!$('panel-player').hidden && cur) draw(); });
+  window.addEventListener('resize', () => { if (!$('panel-player').hidden && cur) { drawMusic(); draw(); } });
+
+  // Your taps (seconds into the recording, one a beat) <-> ticks in the music. Before the
+  // first tap and after the last it carries on at the nearest two taps' tempo.
+  TP.beatMap = {
+    tick(beats, t, bt) {
+      const n = beats.length;
+      if (n < 2) return null;
+      let i = 0;
+      while (i < n - 2 && beats[i + 1] <= t) i++;
+      return (i + (t - beats[i]) / (beats[i + 1] - beats[i])) * bt;
+    },
+    time(beats, tick, bt) {
+      const n = beats.length;
+      if (n < 2) return null;
+      const x = tick / bt, i = Math.max(0, Math.min(n - 2, Math.floor(x)));
+      return beats[i] + (x - i) * (beats[i + 1] - beats[i]);
+    },
+  };
 
   TP.modes.player = {
     panel: 'panel-player',
     valves: false,
-    enter() { renderList(); if (cur) draw(); },
-    leave() { pause(); },
+    enter() { renderList(); if (cur) { fillPieces(); loadMusic(); draw(); } },
+    leave() { pause(); if (tapping) tapEnd(); },
     settingsChanged() {},
     preloadNotes: () => [],
     key(k) {
       if (!cur) return false;
+      if (k === 't') { if (tapping) tap(); else tapStart(); return true; }
       if (k === ' ') { audio.paused ? play() : pause(); return true; }
       if (k === 'escape') { pause(); audio.currentTime = cur.a !== undefined && $('plLoop').checked ? cur.a : 0; draw(); return true; }
       if (k === '[') { setPoint('a'); return true; }

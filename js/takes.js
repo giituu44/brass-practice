@@ -4,7 +4,8 @@
 // aren't kept and ⬇ Save still works.
 TP.takes = (() => {
   'use strict';
-  // Version 2 added a second store, 'recordings' (the Recordings tab's play-along files).
+  // Version 2 added a second store, 'recordings' (the Recordings tab's play-along files);
+  // version 3 'snapshots' (a copy of your progress each day: js/datasafe.js).
   const NAME = 'brass-practice-takes', STORE = 'takes', KEEP = 12;   // newest takes kept per piece
   let opening = null;
   function db() {
@@ -12,15 +13,25 @@ TP.takes = (() => {
       opening = new Promise((resolve, reject) => {
         if (!window.indexedDB) { reject(new Error('IndexedDB is not available')); return; }
         let req;
-        try { req = indexedDB.open(NAME, 2); } catch (e) { reject(e); return; }
+        try { req = indexedDB.open(NAME, 3); } catch (e) { reject(e); return; }
         req.onupgradeneeded = () => {
           const d = req.result;
           if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true }).createIndex('piece', 'piece');
           if (!d.objectStoreNames.contains('recordings')) d.createObjectStore('recordings', { keyPath: 'id', autoIncrement: true });
+          if (!d.objectStoreNames.contains('snapshots')) d.createObjectStore('snapshots', { keyPath: 'day' });
         };
-        req.onsuccess = () => resolve(req.result);
+        let done = false;
+        req.onsuccess = () => {
+          done = true;
+          // A newer version of the app (in another tab) needs to change the stores: let go.
+          req.result.onversionchange = () => { req.result.close(); opening = null; };
+          resolve(req.result);
+        };
         req.onerror = () => reject(req.error);
-        setTimeout(() => reject(new Error('IndexedDB did not open')), 5000);
+        // An older copy of the app open in another tab is holding on to the old stores.
+        req.onblocked = () => TP.toast('Close Brass Practice in your other tabs or windows: this one needs to update where it keeps your recordings.', 10000);
+        // (Not for good: once the other tab lets go, the next try opens it.)
+        setTimeout(() => { if (!done) { opening = null; reject(new Error('IndexedDB did not open')); } }, 5000);
       });
       opening.catch(() => {});
     }
@@ -38,7 +49,10 @@ TP.takes = (() => {
   // Takes are kept per instrument and piece.
   const key = pieceId => `${TP.inst().id}:${pieceId}`;
 
-  // Newest first: [{ id, piece, at, pct, bpm, bars, type, blob }]
+  // Newest first: [{ id, piece, at, pct, bpm, bars, type, blob }]. Takes since October 2026
+  // also have lead (s into the recording where the music starts), startT and spt (the
+  // tick it starts on, seconds per tick), part (of a duet) and trace (your pitch on
+  // each note: [{ i, d, p: [f, c, f, c…] }]) — so they can be lined up with the music.
   function list(pieceId) {
     return run('readonly', s => s.index('piece').getAll(key(pieceId))).then(all => all.sort((a, b) => b.at - a.at));
   }
@@ -54,7 +68,8 @@ TP.takes = (() => {
 
   // The list of takes, with play and delete buttons, into a container.
   let playing = null;
-  async function render(box, pieceId) {
+  // opts.onCompare([a, b] or null): tick two takes to compare them (takes that can be lined up).
+  async function render(box, pieceId, opts = {}) {
     box.textContent = '';
     let all;
     try { all = await list(pieceId); } catch (e) { return 0; }
@@ -62,12 +77,28 @@ TP.takes = (() => {
     const fmt = t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const best = Math.max(...all.map(t => t.pct || 0));
     box.innerHTML = '<div class="hist-title">Your takes</div>';
+    const picked = [];
     for (const t of all) {
       const row = document.createElement('div');
       row.className = 'take-row';
       row.innerHTML = `<button type="button" class="pill take-play" aria-label="Play this take">▶</button>
         <span>${fmt(t.at)} · ${t.pct}% at ${t.bpm} bpm${t.bars ? ` · bars ${t.bars[0]}–${t.bars[1]}` : ''}${t.pct === best ? ' · <b>best</b>' : ''}</span>
         <button type="button" class="link-btn danger take-del" aria-label="Delete this take">delete</button>`;
+      if (opts.onCompare && t.startT !== undefined) {
+        const cmp = document.createElement('label');
+        cmp.className = 'take-cmp';
+        cmp.title = 'Tick two takes to compare them';
+        cmp.innerHTML = '<input type="checkbox"> compare';
+        cmp.querySelector('input').addEventListener('change', e => {
+          e.stopPropagation();
+          if (e.target.checked) picked.push(t); else picked.splice(picked.indexOf(t), 1);
+          // Two at most: ticking a third unticks the oldest pick.
+          if (picked.length > 2) { const old = picked.shift(); box.querySelectorAll('.take-cmp input').forEach(i => { if (i._take === old) i.checked = false; }); }
+          opts.onCompare(picked.length === 2 ? picked.slice().sort((a, b) => a.at - b.at) : null);
+        });
+        cmp.querySelector('input')._take = t;
+        row.querySelector('span').after(cmp);
+      }
       const btn = row.querySelector('.take-play');
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -97,5 +128,12 @@ TP.takes = (() => {
     remove: id => run('readwrite', s => s.delete(id), 'recordings'),
   };
 
-  return { add, list, remove, render, recordings, available: () => db().then(() => true, () => false) };
+  // A copy of your progress each day: { day ('YYYY-MM-DD' or 'before-restore'), at, data }.
+  const snapshots = {
+    list: () => run('readonly', s => s.getAll(), 'snapshots').then(all => all.sort((x, y) => y.at - x.at)),
+    put: snap => run('readwrite', s => s.put(snap), 'snapshots'),
+    remove: day => run('readwrite', s => s.delete(day), 'snapshots'),
+  };
+
+  return { add, list, remove, render, recordings, snapshots, available: () => db().then(() => true, () => false) };
 })();

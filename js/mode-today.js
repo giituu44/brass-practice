@@ -24,9 +24,10 @@
     return unfinished.length ? unfinished[dayNo() % unfinished.length] : pieces[dayNo() % pieces.length];
   }
   // Every other day, the last step is a method-book study instead: the next one in the book
-  // you haven't got to 80% yet, alternating Bordogni (singing line) and Kopprasch (technique).
+  // you haven't got to 80% yet, taking turns: Bordogni (singing line), Kopprasch (technique)
+  // and Slama (every key).
   function studyOfDay() {
-    const book = Math.floor(dayNo() / 2) % 2 ? 'Kopprasch Op. 6' : 'Bordogni vocalises';
+    const book = ['Bordogni vocalises', 'Kopprasch Op. 6', 'Slama 66 Etudes'][Math.floor(dayNo() / 2) % 3];
     const list = LIBRARY.filter(p => p.book === book);
     if (!list.length) return null;
     return list.find(p => !store.pieces[p.id] || store.pieces[p.id].best < 80) || list[dayNo() % list.length];
@@ -264,7 +265,7 @@
       ['Notes mastered', `${mastered} / ${inRangeCount}`, mastered / Math.max(1, inRangeCount)],
       ['Scales played clean', `${scalesClean}`, Math.min(1, scalesClean / 24), `${scalesPlayed} tried`],
       ['Pieces at ★★★', `${pc.three} / ${pc.n}`, pc.three / Math.max(1, pc.n), `${pc.tried} tried`],
-      ['Method-book studies at ★★★', `${mb.three} / ${mb.n}`, mb.three / Math.max(1, mb.n), `${mb.tried} tried · Kopprasch, Bordogni`],
+      ['Method-book studies at ★★★', `${mb.three} / ${mb.n}`, mb.three / Math.max(1, mb.n), `${mb.tried} tried · Kopprasch, Bordogni, Slama`],
     ];
     $('tdStats').innerHTML = stats.map(([name, val, frac, extra]) => `
       <div class="stat"><span class="stat-name">${name}</span><span class="stat-val">${val}</span>
