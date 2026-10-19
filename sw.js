@@ -8,7 +8,7 @@
 // over when you reload (the app offers to); then the old caches are deleted.
 // tools/check.ps1 sets these two versions from the files' contents, so a change to any of
 // them makes a new version.
-const SHELL_VERSION = '55ba1f766b';
+const SHELL_VERSION = 'fc1d0e7ad1';
 const SOUNDS_VERSION = '14015f243f';
 // Several GitHub Pages sites share one origin (and so one set of caches): ours are prefixed.
 const PREFIX = 'brass-practice-';
