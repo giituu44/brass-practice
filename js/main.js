@@ -340,6 +340,9 @@
     if (S.theme === 'auto') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = S.theme;
     if (S.cbColors) document.documentElement.dataset.cb = '1'; else delete document.documentElement.dataset.cb;
+    // The phone's status bar (and the installed app's title bar) takes the theme's background.
+    const bg = S.theme !== 'auto' && getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = bg || m.dataset.color; });
   }
   applyTheme();
   const openSettings = () => { if (active) active.leave(); fillSettings(); dlg.showModal(); };

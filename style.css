@@ -392,6 +392,15 @@ input.text-input { font-family: inherit; }
   background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25);
 }
 .toast[hidden] { display: none; }
+/* "New version ready": at the top, so it never covers a toast */
+.toast.update-bar {
+  top: calc(12px + env(safe-area-inset-top)); bottom: auto; left: 16px; right: 16px; transform: none; width: fit-content; max-width: 520px; margin: 0 auto;
+  z-index: 60; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px;
+}
+.toast.update-bar[hidden] { display: none; }
+.update-bar .pill { height: 32px; }
+.update-later { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 4px 8px; border-radius: 8px; opacity: .7; }
+.update-later:hover { opacity: 1; }
 
 /* Help */
 #help { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }

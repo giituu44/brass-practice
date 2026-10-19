@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" preserveAspectRatio="xMinYMin meet">
+  <!-- Brass Practice: three valves, the middle one pressed. tools/make-icons.ps1 makes the PNGs from this and icon-maskable.svg. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d1a136"/><stop offset="1" stop-color="#a5770a"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(256 256) scale(1.12) translate(-256 -256)">
+  <g fill="#fbf7ef">
+    <rect x="148" y="132" width="72" height="26" rx="13"/><rect x="176" y="158" width="16" height="62" rx="4"/>
+    <rect x="220" y="168" width="72" height="26" rx="13"/><rect x="248" y="194" width="16" height="26" rx="4"/>
+    <rect x="292" y="132" width="72" height="26" rx="13"/><rect x="320" y="158" width="16" height="62" rx="4"/>
+    <rect x="152" y="216" width="64" height="164" rx="14"/>
+    <rect x="224" y="216" width="64" height="164" rx="14"/>
+    <rect x="296" y="216" width="64" height="164" rx="14"/>
+  </g>
+  <g fill="#a5770a" opacity=".55">
+    <rect x="152" y="238" width="208" height="8"/><rect x="152" y="350" width="208" height="8"/>
+  </g>
+  </g>
+</svg>

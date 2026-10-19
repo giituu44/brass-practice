@@ -4,6 +4,8 @@ A practice app for tuba and other brass: fingerings, scales, rhythm, real pieces
 
 **To run it:** open `index.html` in Chrome, Edge, Firefox or Safari.
 
+**Or use it online** at https://giituu44.github.io/brass-practice/ and install it: *Add to Home screen* (Android, or Share › Add to Home Screen on iPhone and iPad) or the install button in the address bar (Chrome, Edge). After one visit it keeps a copy of itself and all its sounds (about 9 MB), so it opens and plays with no internet. When a new version has downloaded, it says so at the top: **Reload** to switch to it. On iPhone and iPad the home-screen app keeps its own progress, apart from Safari's: move it across with Back up and ⬆ Restore (Settings).
+
 ## What's in it
 
 - **Today**: a daily routine sized to the time you have (10, 20, 30 or 45 min), or **your own routine** (tick the steps you want). **▶ Start session** runs the steps one after another, with a short rest between, from a bar along the bottom. A **trouble spot** step brings back the bars you missed most in a piece (until you play them clean), a **review** step a piece you played well but not for two weeks. **Goals** (a piece cleanly at a tempo by a date, or minutes a week) fill in as you practise. A **Get set up** checklist covers the range, compensating valves, mic and delays. And a **journal** for the day: warm-up, scale of the day, note drill, rhythm and a piece, plus lip slurs and sight-reading at 30 min, and the relative scale and both a study and a piece at 45. The piece rotates among your next few unfinished ones. With minutes practised this week, a streak, and progress for the current instrument.
@@ -72,6 +74,7 @@ A practice app for tuba and other brass: fingerings, scales, rhythm, real pieces
 ## Files
 
 - `index.html`, `style.css`
+- `manifest.webmanifest`, `icons/`: the name, colours and icons for installing; `sw.js`: the service worker that keeps the offline copy (used only when the app is served over https or from localhost, not from disk); `js/pwa.js` starts it and offers new versions
 - `fingerings.js`: the hand-made BB♭ tuba chart
 - `js/`:
   - `core.js`: settings, the instrument, staff drawing, sound, valve input
@@ -85,9 +88,9 @@ A practice app for tuba and other brass: fingerings, scales, rhythm, real pieces
   - `pieces-gen.js`: sight-reading and lip-slur generators; `pieces-library.js`: the library browser; `takes.js`: kept takes and recordings (IndexedDB); `journal.js`: your notes; `session.js`: guided sessions; `goals.js`: goals; `stand.js`: stand mode and the screen wake lock
 - `sounds/`: instrument samples as base64 MP3 in `.js` files, so they load even when the page is opened from your disk (only the set in use is loaded, when first needed)
 - `tests.html`: open it to check note spelling, keys, the fingering charts, every built-in piece, the pitch detection and (through a local server) that every tab opens without errors
-- `tools/check.ps1`: the one-click check — every script parses, and the tests and app smoke test pass from disk in a headless Edge or Chrome (its own profile; your progress isn't touched): `powershell -ExecutionPolicy Bypass -File tools\check.ps1`
+- `tools/check.ps1`: the one-click check — every script parses, `sw.js` lists every file the app loads, and the tests and app smoke test pass from disk in a headless Edge or Chrome (its own profile; your progress isn't touched): `powershell -ExecutionPolicy Bypass -File tools\check.ps1`. It also gives `sw.js` a new version whenever the files have changed, so installed copies update: publish `sw.js` along with them. (Served from localhost the app is cached just like online: after an edit, run the check, reload, and press Reload on the new-version notice.)
 - `vendor/pdfjs/`: pdf.js 3.11, used to show and read PDFs (loaded only when you open one)
-- `tools/`: the Python and ffmpeg scripts that built the sample files, and `mic-lab.html`: drop in a recording (e.g. a take saved with ⬇ Save) to see the pitch, note starts and tuning the app's mic detection reads from it
+- `tools/`: the Python and ffmpeg scripts that built the sample files, `make-icons.ps1` (draws the PNG icons from `icons/*.svg`), and `mic-lab.html`: drop in a recording (e.g. a take saved with ⬇ Save) to see the pitch, note starts and tuning the app's mic detection reads from it
 
 ## Credits
 

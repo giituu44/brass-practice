@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brass Practice</title>
+  <meta name="description" content="Practise tuba and other brass: fingerings, scales, rhythm, real pieces and a tuner.">
+  <meta name="theme-color" content="#f6f3ee" data-color="#f6f3ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171614" data-color="#171614" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -676,6 +681,11 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>
+  <div id="updateBar" class="toast update-bar" role="status" hidden>
+    <span>A new version of the app is ready.</span>
+    <button id="updateReload" class="pill primary">Reload</button>
+    <button id="updateLater" class="update-later" aria-label="Not now" title="Not now">✕</button>
+  </div>
   <div id="sessionBar" class="session-bar" hidden role="status" aria-live="polite">
     <span id="sbText"></span>
     <button id="sbNext" class="pill">Skip ›</button>
@@ -855,5 +865,6 @@
   <script src="js/metronome.js"></script>
   <script src="js/stand.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/pwa.js"></script>
 </body>
 </html>
