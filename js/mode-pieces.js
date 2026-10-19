@@ -229,16 +229,7 @@
   const shiftOf = id => (store.pieceShift[id] !== undefined ? store.pieceShift[id] : autoShift);
   const usingMic = () => S.input === 'mic';
   const gradable = midi => usingMic() || !!FINGERINGS[midi];
-  // The alternate fingering your intonation map found sits clearly better (8¢+) than the main one, or null.
-  TP.myFingering = midi => {
-    const d = store.intonation && store.intonation[midi];
-    if (!d || !d.alts || d.c === undefined || !FINGERINGS[midi]) return null;
-    let best = null;
-    for (const [f, a] of Object.entries(d.alts)) {
-      if (f !== d.f && Math.abs(d.c) - Math.abs(a.c) >= 8 && (!best || Math.abs(a.c) < Math.abs(best[1].c))) best = [f, a];
-    }
-    return best ? best[0] : null;
-  };
+
 
   function open(id, keepRange) {
     stop();
@@ -524,8 +515,8 @@
   }
   function idle() {
     const how = {
-      play: 'Press Space to start — one bar of clicks, then play each note on time.',
-      wait: 'Press Space to start — it waits on each note until you play it right.',
+      play: `Press Space to start${TP.startHint()} — ${S.countIn === 2 ? 'two bars' : 'one bar'} of clicks, then play each note on time.`,
+      wait: `Press Space to start${TP.startHint()} — it waits on each note until you play it right.`,
       listen: 'Press Space to hear it played.',
     }[S.pieceMode];
     say(how);
@@ -590,7 +581,8 @@
     const spt = 60 / S.pieceBpm / SC.TPQ;               // seconds per tick
     const bt = SC.beatTicks(piece);
     const barT = piece.beats * 96 / piece.beatType;
-    const countBeats = Math.max(1, Math.round(barT / bt));
+    const perBar = Math.max(1, Math.round(barT / bt));
+    const countBeats = perBar * (S.countIn === 2 ? 2 : 1);   // Settings: 2 bars gives time to breathe
     const t0 = ctx.currentTime + 0.3;
     const tStart = t0 + countBeats * bt * spt;
     running = { kind, r, results: [], combo: 0, bars: {}, tune: [], traces: [], readings: usingMic() ? [] : null };
@@ -601,7 +593,7 @@
 
     for (let b = 0; b < countBeats; b++) {
       r.click(t0 + b * bt * spt, b === 0);
-      r.at(t0 + b * bt * spt, () => say(String(b + 1), 'count'));
+      r.at(t0 + b * bt * spt, () => say(String((b % perBar) + 1), 'count'));
     }
     r.at(tStart - 0.05, () => say(kind === 'listen' ? 'Listen…' : ''));
     if (S.pieceClick || kind === 'listen') {
@@ -630,20 +622,11 @@
       if (kind === 'listen' || S.pieceGuide) r.play(n.midi, Math.max(0.12, dur * 0.95), t, false);
       r.at(t, () => view.setCurrent(n.i, !scrolling()));
       if (kind !== 'play' || !gradable(n.midi)) return;
-      const grace = TP.graceFor(dur);
       // Your note sounds as you play it (valves) — unless the guide is already playing it.
-      if (!mic && !S.pieceGuide) TP.soundAsYouPlay(r, t, n.midi, dur, grace);
-      const win = Math.min(0.45, Math.max(0.2, dur * 0.8));
-      r.at(t + (mic ? win : grace), () => {
-        let grade, played = null;
-        if (mic) {
-          const first = TP.mic.heard(n.midi, t - 0.15, t + win, 2, again);
-          grade = first === null ? 'miss' : first <= t + 0.12 ? 'perfect' : 'late';
-        } else {
-          const j = TP.judgeBeat(t, n.midi, grace);
-          grade = j.grade;
-          played = j.played;
-        }
+      if (!mic && !S.pieceGuide) TP.soundAsYouPlay(r, t, n.midi, dur, TP.graceFor(dur));
+      const wait = TP.gradeWait(dur, mic);
+      r.at(t + wait, () => {
+        const { grade, played } = TP.gradeNote(t, n.midi, dur, mic, again);
         running.results.push(grade);
         const bar = running.bars[n.m] || (running.bars[n.m] = { bad: 0, n: 0 });
         bar.n++;
@@ -661,7 +644,7 @@
         // With the mic, also note how in tune the held part of the note was.
         if (mic && grade !== 'miss') running.traces.push({ n, t, dur });
         if (mic && grade !== 'miss' && dur >= 0.25) {
-          r.at(t + Math.max(win, dur * 0.9) + 0.05, () => {
+          r.at(t + Math.max(wait, dur * 0.9) + 0.05, () => {
             const c = TP.mic.centsOn(n.midi, t + 0.1, t + dur * 0.9);
             if (c !== null && running) running.tune.push({ n, c });
           });
@@ -1074,6 +1057,7 @@
       open(S.pieceId || LIBRARY[0].id, item && item.id === S.pieceId);
     },
     leave() { stop(); },
+    autoStart: () => !running && S.pieceMode !== 'listen',
     settingsChanged() { if (item) open(item.id, true); },
     preloadNotes: () => (tl ? [...new Set(tl.notes.map(n => n.midi))] : []),
     submit,

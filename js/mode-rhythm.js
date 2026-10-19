@@ -222,7 +222,7 @@
     status.textContent = text || ' ';
   }
   const readyText = () => (usingMic()
-    ? 'Press Space (or Start) for a one-bar count-in, then play each note on your instrument — any one pitch, tongued.'
+    ? `Press Space (or Start)${TP.startHint()} for a one-bar count-in, then play each note on your instrument — any one pitch, tongued.`
     : 'Press Space (or Start) for a one-bar count-in, then tap each note.');
 
   // What's running: the metronome, or a pattern being played ('test' or 'hear').
@@ -443,6 +443,8 @@
       if (!pattern.length) newPattern(); else { drawRhythm(); say(readyText()); }
     },
     leave() { stopAll(); },
+    autoStart: () => !running,
+    submit() { playPattern('test'); },
     settingsChanged() {},
     preloadNotes: () => [PLAY_NOTE],
     key(k, e) {

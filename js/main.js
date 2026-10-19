@@ -5,26 +5,60 @@
   const valvePanel = $('valvePanel');
   let active = null;
 
+  // One tab's bug shouldn't take the others down: log it, say so, carry on.
+  function safely(what, fn) {
+    try { return fn(); } catch (e) {
+      console.error(e);
+      TP.toast(`Something went wrong in ${what} — the rest of the app still works. (Details are in the browser console.)`, 7000);
+      return undefined;
+    }
+  }
+  TP.safely = safely;
+  const tabName = id => { const b = document.querySelector(`.tab[data-tab="${id}"] span`); return b ? b.textContent : id; };
   function show(tab) {
-    if (!TP.modes[tab]) tab = 'fingerings';
-    if (active) active.leave();
+    if (!TP.modes[tab]) tab = 'today';
+    if (active) { const was = active; safely(tabName(S.tab), () => was.leave()); }
     S.tab = tab;
     save();
     for (const [id, m] of Object.entries(TP.modes)) $(m.panel).hidden = id !== tab;
-    document.querySelectorAll('.tab').forEach(b => {
+    document.querySelectorAll('.tab[data-tab], .more-item').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === tab);
-      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+      if (b.classList.contains('tab')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
     });
+    // On a phone, a tab from the More menu shows its name on the More button.
+    const inMore = document.querySelector(`.tab.tab-more[data-tab="${tab}"]`);
+    $('tabMore').classList.toggle('active', !!inMore);
+    $('tabMoreLabel').textContent = inMore ? inMore.querySelector('span').textContent : 'More';
     active = TP.modes[tab];
     valvePanel.hidden = !active.valves;
     if (active.valves) $(active.panel).querySelector('.valve-slot').appendChild(valvePanel);
     TP.held.clear();
     TP.touched.clear();
     TP.resetValves();
-    active.enter();
-    TP.preload(active.preloadNotes());
+    safely(tabName(tab), () => active.enter());
+    safely(tabName(tab), () => TP.preload(active.preloadNotes()));
   }
-  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+  document.querySelectorAll('.tab[data-tab]').forEach(b => b.addEventListener('click', () => { closeMore(); show(b.dataset.tab); }));
+
+  // ---------- phones: four tabs and a More menu for the rest ----------
+  const more = $('moreSheet');
+  for (const b of document.querySelectorAll('.tab.tab-more')) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'more-item';
+    item.setAttribute('role', 'menuitem');
+    item.dataset.tab = b.dataset.tab;
+    item.innerHTML = b.innerHTML;
+    item.addEventListener('click', () => { closeMore(); show(b.dataset.tab); });
+    more.appendChild(item);
+  }
+  function closeMore() { more.hidden = true; $('tabMore').setAttribute('aria-expanded', 'false'); }
+  $('tabMore').addEventListener('click', e => {
+    e.stopPropagation();
+    more.hidden = !more.hidden;
+    $('tabMore').setAttribute('aria-expanded', String(!more.hidden));
+  });
+  document.addEventListener('click', e => { if (!more.hidden && !more.contains(e.target)) closeMore(); });
   TP.show = show;
 
   // Pop-out menus close when you click elsewhere, or press Esc.
@@ -32,7 +66,7 @@
     document.querySelectorAll('details.pop[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.querySelectorAll('details.pop[open]').forEach(d => { d.open = false; });
+    if (e.key === 'Escape') { document.querySelectorAll('details.pop[open]').forEach(d => { d.open = false; }); closeMore(); }
   }, true);
   // Keep an opened pop-out on screen: slide it left if it would spill over the right edge.
   document.querySelectorAll('details.pop').forEach(d => d.addEventListener('toggle', () => {
@@ -49,8 +83,19 @@
     // Typing in a text box (the journal) is just typing; and Space or Enter on a button
     // or menu you've tabbed to works it, rather than starting the exercise.
     if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
-    if ((e.key === ' ' || e.key === 'Enter') && e.target.closest && e.target.closest('button, select, summary, a, label')) return;
-    const k = e.key.toLowerCase();
+    // A page-turner pedal (they send Page Down / Page Up or the arrow keys): forward is
+    // Space (start, check, next), back is Esc (stop). Only outside menus and buttons.
+    const control = e.target.closest && e.target.closest('button, select, summary, a, label');
+    let key = e.key;
+    if (S.pedal !== false && !control) {
+      if (key === 'PageDown' || key === 'ArrowRight') key = ' ';
+      else if (key === 'PageUp' || key === 'ArrowLeft') key = 'Escape';
+    }
+    // Space or Enter on a button or menu you tabbed to works that control. (A menu you
+    // only clicked and closed keeps focus by accident: there Space still starts.)
+    if ((key === ' ' || key === 'Enter') && control && control !== mouseFocused) return;
+    if (control && control === mouseFocused) control.blur();
+    const k = key.toLowerCase();
     if (k === '?') { e.preventDefault(); openHelp(); return; }
     if (active.valves && TP.VALVE_KEYS[k]) {
       e.preventDefault();
@@ -58,13 +103,20 @@
       return;
     }
     if (e.repeat && (k === ' ' || k === 'enter')) { e.preventDefault(); return; }
-    if (active.key(k, e)) e.preventDefault();
+    if (k === 'escape' && TP.standMode && TP.standMode.on()) { e.preventDefault(); TP.standMode.set(false); return; }
+    if (k === 'f' && !(active.valves && TP.VALVE_KEYS[k])) { e.preventDefault(); TP.standMode.toggle(); return; }
+    if (safely(tabName(S.tab), () => active.key(k, e))) e.preventDefault();
   });
   document.addEventListener('keyup', e => {
     const v = TP.VALVE_KEYS[e.key.toLowerCase()];
     if (v) { TP.held.delete(v); TP.renderValves(); }
   });
   window.addEventListener('blur', () => { TP.held.clear(); TP.touched.clear(); TP.renderValves(); });
+
+  // The control last focused by a click or tap (not by Tab).
+  let mouseFocused = null;
+  document.addEventListener('pointerdown', e => { mouseFocused = e.target.closest && e.target.closest('select, button, summary, label'); }, true);
+  document.addEventListener('focusin', e => { if (e.target !== mouseFocused && !(mouseFocused && mouseFocused.contains(e.target))) mouseFocused = null; });
 
   // Keep focus off buttons so Space doesn't also click whatever was last pressed.
   // (Delegated, so buttons added later count too; checkboxes and selects let go after a change.)
@@ -75,8 +127,8 @@
     const t = e.target;
     if (t.closest('main, header') && (t.type === 'checkbox' || t.tagName === 'SELECT')) setTimeout(() => t.blur(), 0);
   });
-  $('submitBtn').addEventListener('click', () => active.submit());
-  $('hearBtn').addEventListener('click', () => active.hear());
+  $('submitBtn').addEventListener('click', () => safely(tabName(S.tab), () => active.submit()));
+  $('hearBtn').addEventListener('click', () => safely(tabName(S.tab), () => active.hear()));
 
   // ---------- settings ----------
   const dlg = $('settings');
@@ -99,6 +151,10 @@
     fillInstrumentOptions();
     $('setInstrument').value = S.instrument;
     $('setComp').checked = !!S.compensating;
+    $('setCountIn').value = String(S.countIn || 1);
+    $('setRest').value = String(S.restAfter === undefined ? 20 : S.restAfter);
+    $('setHandsFree').checked = !!S.handsFree;
+    $('setPedal').checked = S.pedal !== false;
     $('setCompRow').hidden = !(TP.inst().kind === 'valve' && TP.inst().valves === 4);
     setLow.value = S.low;
     setHigh.value = S.high;
@@ -117,6 +173,7 @@
     $('setLatency').value = S.latencyMs;
     $('setA4').value = String(S.a4 || 440);
     $('setTheme').value = S.theme;
+    $('setAwake').checked = !!S.keepAwake;
     $('setCB').checked = !!S.cbColors;
     renderKeybinds();
   }
@@ -282,6 +339,13 @@
   }
   applyTheme();
   const openSettings = () => { if (active) active.leave(); fillSettings(); dlg.showModal(); };
+  // Settings in sections, one at a time.
+  function settingsSection(sec) {
+    dlg.querySelectorAll('.set-seg button').forEach(b => b.classList.toggle('active', b.dataset.sec === sec));
+    dlg.querySelectorAll('.set-sec').forEach(d => { d.hidden = d.dataset.sec !== sec; });
+  }
+  dlg.querySelector('.set-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) settingsSection(b.dataset.sec); });
+  TP.openSettings = sec => { openSettings(); if (sec) settingsSection(sec); };
   $('settingsBtn').addEventListener('click', openSettings);
   $('instBtn').addEventListener('click', () => { openSettings(); $('setInstrument').focus(); });
   dlg.addEventListener('change', e => {
@@ -302,6 +366,10 @@
       tone: $('setTone').value,
       micAnyOctave: $('setAnyOctave').checked,
       compensating: $('setComp').checked,
+      countIn: Number($('setCountIn').value),
+      restAfter: Number($('setRest').value),
+      handsFree: $('setHandsFree').checked,
+      pedal: $('setPedal').checked,
       micSens: $('setMicSens').value,
       micLatencyMs: Math.max(-100, Math.min(400, Number($('setMicLatency').value) || 0)),
       youSound: $('setYouSound').checked,
@@ -309,10 +377,12 @@
       timing: $('setTiming').value,
       latencyMs: Math.max(-100, Math.min(400, Number($('setLatency').value) || 0)),
       theme: $('setTheme').value,
+      keepAwake: $('setAwake').checked,
       cbColors: $('setCB').checked,
       a4: Number($('setA4').value) || 440,
     });
     applyTheme();
+    if (TP.standMode) TP.standMode.wake();
     S.ranges[S.instrument] = { low: lo, high: hi };
     save();
   });
@@ -333,7 +403,7 @@
   $('backupBtn').addEventListener('click', () => {
     store.lastBackup = Date.now();
     save();
-    const blob = new Blob([JSON.stringify({ app: 'brass-practice', version: 1, saved: new Date().toISOString(), data: store }, null, 1)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'brass-practice', version: 1, saved: new Date().toISOString(), data: JSON.parse(TP.serialize()) }, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `brass-practice-backup-${TP.dayKey()}.json`;
@@ -358,14 +428,6 @@
   });
 
   // ---------- toast ----------
-  let toastTimer = 0;
-  TP.toast = (text, ms = 4000) => {
-    const t = $('toast');
-    t.textContent = text;
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, ms);
-  };
 
   // ---------- a nudge to back up now and then ----------
   // Progress lives only in this browser, so after a week of practice days without
@@ -414,6 +476,29 @@
     if (r.midi === null) { $('micLive').textContent = '…'; return; }
     const n = TP.spell(r.midi, 'flats');
     $('micLive').textContent = TP.label(n) + (Math.abs(r.cents) > 15 ? (r.cents > 0 ? ' ↑' : ' ↓') : '');
+  });
+
+  // ---------- hands-free start: with the mic, a short note starts the exercise ----------
+  // A tab that can start this way says when it's ready (autoStart). A note of at least
+  // 0.15 s, then a quarter-second of quiet, starts it — but not the last note of a run
+  // that just ended (the tab has to have been ready for a moment first).
+  const hf = { since: null, last: 0, readySince: null };
+  TP.startHint = () => (S.handsFree && S.input === 'mic' ? ' (or play a short note)' : '');
+  TP.mic.on(r => {
+    const ready = S.handsFree && S.input === 'mic' && active && active.autoStart && !document.querySelector('dialog[open]') && safely(tabName(S.tab), () => active.autoStart());
+    if (!ready) { hf.since = null; hf.readySince = null; return; }
+    if (hf.readySince === null) hf.readySince = r.t;
+    if (r.midi !== null) {
+      if (hf.since === null) hf.since = r.t;
+      hf.last = r.t;
+      return;
+    }
+    if (hf.since === null) return;
+    if (hf.since >= hf.readySince + 0.5 && hf.last - hf.since >= 0.15 && r.t - hf.last >= 0.25) {
+      hf.since = null;
+      hf.readySince = null;
+      safely(tabName(S.tab), () => active.submit());
+    } else if (r.t - hf.last > 1) hf.since = null;
   });
 
   // ---------- practice log ----------

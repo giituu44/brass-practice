@@ -158,7 +158,7 @@
 
   function intro() {
     if (S.scaleMode === 'flow') {
-      say(`${scaleName()} — press Space to start. After 4 clicks, hold each note's ${TP.inputWord()} by its beat.`);
+      say(`${scaleName()} — press Space to start${TP.startHint()}. After ${S.countIn === 2 ? 8 : 4} clicks, hold each note's ${TP.inputWord()} by its beat.`);
     } else {
       say(`${scaleName()}, up and down — finger the highlighted note and press Space.`);
     }
@@ -261,19 +261,20 @@
     const spb = 60 / S.scaleTempo;
     const grace = TP.graceFor(spb);
     const mic = S.input === 'mic';
-    // With the mic, listen from just before the beat to well after it (a real note
-    // takes a moment to speak and to be recognised).
-    const listenTo = Math.min(0.45, spb * 0.75);
+    // When each note is graded: just after the beat (valves), or once the mic's
+    // listening window has closed (a real note takes a moment to speak).
+    const wait = TP.gradeWait(spb, mic);
     const t0 = ctx.currentTime + 0.3;
-    const tp = t0 + PER_BAR * spb;
+    const lead = PER_BAR * (S.countIn === 2 ? 2 : 1);   // Settings: 2 bars gives time to breathe
+    const tp = t0 + lead * spb;
     flow = { run: r, started: false, perfect: 0, late: 0, combo: 0, maxCombo: 0 };
     TP.logValves();
     TP.setSubmitLabel('Stop');
     renderFlowBtn();
 
-    for (let b = 0; b < PER_BAR; b++) {
-      r.click(t0 + b * spb, b === 0);
-      r.at(t0 + b * spb, () => say(`${b + 1}`, 'count'));
+    for (let b = 0; b < lead; b++) {
+      r.click(t0 + b * spb, b % PER_BAR === 0);
+      r.at(t0 + b * spb, () => say(`${(b % PER_BAR) + 1}`, 'count'));
     }
     r.at(tp - spb * 0.5, () => { flow.started = true; draw(); });
     run.forEach((note, i) => {
@@ -285,14 +286,8 @@
       // Valves: judge just after the beat, then move the cursor on to the next note.
       // Mic: move the cursor on the beat, judge once the listening window closes.
       if (mic) r.at(t + grace, () => { idx = i + 1; draw(); });
-      r.at(t + (mic ? listenTo : grace), () => {
-        let res;
-        if (mic) {
-          const first = TP.mic.heard(note.midi, t - 0.15, t + listenTo);
-          res = { grade: first === null ? 'miss' : first <= t + 0.12 ? 'perfect' : 'late' };
-        } else {
-          res = TP.judgeBeat(t, note.midi, grace);
-        }
+      r.at(t + wait, () => {
+        const res = TP.gradeNote(t, note.midi, spb, mic);
         TP.activity();
         if (res.grade === 'miss') {
           states[i] = 'wrong';
@@ -311,7 +306,7 @@
         draw();
       });
     });
-    r.at(tp + (run.length - 1) * spb + Math.max(grace, mic ? listenTo : 0) + 0.15, finishFlow);
+    r.at(tp + (run.length - 1) * spb + wait + 0.15, finishFlow);
   }
 
   function finishFlow() {
@@ -391,11 +386,7 @@
     for (const m of opts) startSel.add(new Option(TP.label(TP.spellAs(m, S.scaleKey[0])), m));
     startSel.value = S.scaleStart;
   }
-  function setTempo(v) {
-    S.scaleTempo = Math.max(30, Math.min(200, Math.round(v)));
-    $('scTempoOut').textContent = S.scaleTempo;
-    save();
-  }
+  const setTempo = TP.tempoControl('scTempoOut', 'scSlower', 'scFaster', { min: 30, max: 200, get: () => S.scaleTempo, put: v => { S.scaleTempo = v; } });
   function renderFlowBtn() {
     const isFlow = S.scaleMode === 'flow';
     $('scFlowOpts').hidden = !isFlow;
@@ -449,8 +440,6 @@
   for (const id of ['scKey', 'scType', 'scPattern', 'scOct', 'scStart', 'scMode', 'scShowF', 'scPlayAlong', 'scLoop']) {
     $(id).addEventListener('change', onChange);
   }
-  $('scSlower').addEventListener('click', () => setTempo(S.scaleTempo - 4));
-  $('scFaster').addEventListener('click', () => setTempo(S.scaleTempo + 4));
   $('scRestart').addEventListener('click', reset);
   $('scListen').addEventListener('click', listen);
 
@@ -464,6 +453,7 @@
     valves: true,
     enter() { syncControls(); reset(); },
     leave() { stopFlow(); stopListening(); TP.setSubmitLabel('Submit'); },
+    autoStart: () => S.scaleMode === 'flow' && !flow,
     settingsChanged() { reset(); },
     preloadNotes: () => run.map(n => n.midi),
     submit,

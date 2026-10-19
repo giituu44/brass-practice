@@ -271,3 +271,12 @@ TP.mic = (() => {
     get current() { return current; },
   };
 })();
+
+// Why the microphone didn't start, in plain words.
+TP.micError = function micError(e) {
+  if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+    return 'Microphone access was blocked. Allow it in the browser’s address bar (or site settings) and try again.';
+  }
+  if (e && e.name === 'NotFoundError') return 'No microphone found.';
+  return (e && e.message) || 'Couldn’t start the microphone.';
+};

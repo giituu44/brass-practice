@@ -125,22 +125,10 @@
       // The app's phrase (the mic ignores the app's own sound while it plays).
       r.play(n.midi, Math.max(0.15, n.dur * spt * 0.92), tp + n.start * spt, true);
       // Your answer, graded like a piece.
-      const t = tr + n.start * spt, dur = n.dur * spt, grace = TP.graceFor(dur);
+      const t = tr + n.start * spt, dur = n.dur * spt;
       const again = k > 0 && tl.notes[k - 1].midi === n.midi;
-      if (!mic) TP.soundAsYouPlay(r, t, n.midi, dur, grace);
-      const win = Math.min(0.45, Math.max(0.2, dur * 0.8));
-      r.at(t + (mic ? win : grace), () => {
-        let grade, played = null;
-        if (mic) {
-          const first = TP.mic.heard(n.midi, t - 0.15, t + win, 2, again);
-          grade = first === null ? 'miss' : first <= t + 0.12 ? 'perfect' : 'late';
-        } else {
-          const j = TP.judgeBeat(t, n.midi, grace);
-          grade = j.grade;
-          played = j.played;
-        }
-        running.results[k] = { grade, played };
-      });
+      if (!mic) TP.soundAsYouPlay(r, t, n.midi, dur, TP.graceFor(dur));
+      r.at(t + TP.gradeWait(dur, mic), () => { running.results[k] = TP.gradeNote(t, n.midi, dur, mic, again); });
     });
     r.at(tEnd + 0.3, finish);
   }
@@ -199,19 +187,13 @@
   for (const [k, L] of Object.entries(LEVELS)) $('ecLevel').add(new Option(`${k}. ${L.name}`, k));
   $('ecKey').add(new Option('Any easy key', 'any'));
   for (const k of EASY_KEYS) $('ecKey').add(new Option(`${TP.tonicName(k)} major`, k));
-  function setTempo(v) {
-    S.echoBpm = Math.max(40, Math.min(160, Math.round(v)));
-    $('ecBpm').textContent = S.echoBpm;
-    save();
-  }
+  const setTempo = TP.tempoControl('ecBpm', 'ecSlower', 'ecFaster', { min: 40, max: 160, get: () => S.echoBpm, put: v => { S.echoBpm = v; } });
   $('ecLevel').addEventListener('change', e => { e.target.blur(); S.echoLevel = Number(e.target.value); save(); stop(); phrase = null; lastOk = true; intro(); });
   $('ecKey').addEventListener('change', e => { e.target.blur(); S.echoKey = e.target.value; save(); stop(); phrase = null; lastOk = true; intro(); });
-  $('ecSlower').addEventListener('click', () => setTempo(S.echoBpm - 4));
-  $('ecFaster').addEventListener('click', () => setTempo(S.echoBpm + 4));
 
   function intro() {
     $('ecScore').innerHTML = '<div class="echo-hidden"><span>?</span><span>?</span><span>?</span></div>';
-    say('Press Space: a bar of clicks, the phrase, then you play it back in the next bar.');
+    say(`Press Space${TP.startHint()}: a bar of clicks, the phrase, then you play it back in the next bar.`);
     TP.setSubmitLabel('Start');
     $('ecHint').textContent = usingMic()
       ? 'Play it back on your instrument. Use headphones so the mic doesn’t hear the clicks.'
@@ -229,6 +211,7 @@
       if (phrase && !running && view) { TP.setSubmitLabel(lastOk ? 'New phrase' : 'Try again'); } else intro();
     },
     leave() { stop(); TP.setSubmitLabel('Submit'); },
+    autoStart: () => !running,
     settingsChanged() { phrase = null; lastOk = true; intro(); },
     preloadNotes: () => (tl ? tl.notes.map(n => n.midi) : []),
     submit,

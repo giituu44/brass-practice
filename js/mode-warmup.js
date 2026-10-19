@@ -463,12 +463,8 @@
 
   function fillWarmupNotes() {
     TP.fillNoteSelects();
-    const sel = $('bzNote'), keep = sel.value;
-    sel.textContent = '';
-    for (const m of TP.ALL_MIDI) sel.add(new Option(TP.flatLabel(m), m));
-    // Default: an open note low in the middle of your range (buzzing sits low and easy).
-    const def = TP.ALL_MIDI.find(m => m >= S.low + 5 && FINGERINGS[m] && FINGERINGS[m][0] === '') || TP.ALL_MIDI[0];
-    sel.value = keep && TP.ALL_MIDI.includes(Number(keep)) ? keep : def;
+    // Buzzing: an open note low in your range (buzzing sits low and easy).
+    TP.noteMenu($('bzNote'), TP.ALL_MIDI.find(m => m >= S.low + 5 && FINGERINGS[m] && FINGERINGS[m][0] === '') || TP.ALL_MIDI[0]);
   }
   $('bzNote').addEventListener('change', () => drawBuzz(null));
 

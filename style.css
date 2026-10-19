@@ -994,3 +994,70 @@ a.replay-btn { text-decoration: none; color: var(--ink); font-weight: 600; font-
 /* Keyboard users see where they are. */
 button:focus-visible, summary:focus-visible, select:focus-visible, a:focus-visible,
 input:focus-visible, textarea:focus-visible, .tab:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* ---------- Navigation: grouped sidebar; on phones four tabs and a More menu ---------- */
+.nav-h { display: none; }
+#tabMore { display: none; }
+.more-sheet[hidden] { display: none; }
+@media (min-width: 900px) {
+  .nav-h { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 10px 12px 2px; }
+  .nav-h:first-child { padding-top: 0; }
+  .top .tab { padding: 8px 12px; }
+}
+@media (max-width: 899px) {
+  .top .tabs { grid-template-columns: repeat(5, 1fr); }
+  .top .tab.tab-more { display: none; }
+  #tabMore { display: inline-flex; }
+  #tabMore.active { color: var(--brass); }
+  .more-sheet {
+    position: fixed; left: 8px; right: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 41;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
+  }
+  .more-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px; border: 0; border-radius: 12px; background: var(--valve); color: var(--ink); font-size: 13px; cursor: pointer; }
+  .more-item.active { background: var(--brass-soft); color: var(--brass); font-weight: 600; }
+  .more-item .ti { width: 24px; height: 24px; }
+}
+
+/* ---------- Settings in sections ---------- */
+.set-seg { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 14px; }
+.set-seg button { flex: 1 1 auto; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; font-size: 13px; }
+.set-seg button.active { background: var(--brass-soft); border-color: var(--brass); font-weight: 600; }
+.set-sec { min-height: 220px; }
+
+/* ---------- Pieces on a phone: less chrome, more music ---------- */
+@media (max-width: 620px) {
+  #panel-pieces .toolbar { gap: 6px; margin-bottom: 6px; }
+  #panel-pieces .toolbar .pill > span:first-child { display: none; }
+  #panel-pieces #pcMeta { display: none; }
+  #panel-pieces .piece-note { font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #panel-pieces .piece-note:active, #panel-pieces .piece-note:focus { -webkit-line-clamp: unset; }
+  #pcImport { font-size: 0; } #pcImport::before { content: '＋'; font-size: 16px; }
+  #pcBrowse kbd { display: none; }
+  .score-box.scroll { height: 168px; }
+  #panel-pieces .valve:not(.pos) { width: 56px; height: 108px; }
+  #panel-pieces .valves { margin: 10px 0 8px; }
+}
+
+/* ---------- Stand mode: big music, no menus (js/stand.js) ---------- */
+.stand-exit {
+  position: fixed; top: 10px; right: 10px; z-index: 60; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 18px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
+}
+.stand-exit[hidden] { display: none; }
+body.stand { display: block; }
+body.stand .top, body.stand .toolbar, body.stand .piece-note, body.stand #pcRangeWarn,
+body.stand .hint, body.stand #scBest { display: none !important; }
+body.stand main { max-width: none; padding: 14px 20px 20px; }
+body.stand .score-box.scroll { height: min(46vh, 360px); }
+body.stand .score-box.scroll .score-line { height: min(40vh, 320px); }
+body.stand .score-box:not(.scroll) { max-height: 72vh; }
+body.stand .status { font-size: 18px; }
+body.stand #valvePanel.mic .valves { display: none; }
+@media (orientation: landscape) and (max-height: 560px) {
+  body.stand .valve:not(.pos) { width: 50px; height: 92px; }
+  body.stand .valves { margin: 4px 0; }
+  body.stand .score-box.scroll { height: 50vh; }
+  body.stand .score-box.scroll .score-line { height: 44vh; }
+}

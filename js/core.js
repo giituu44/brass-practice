@@ -69,6 +69,11 @@ const TP = (() => {
     tgSub: 4,             // …and notes per beat
     intAlts: false,       // intonation map: measure alternate fingerings too
     compensating: false,  // 4-valve horn with compensating valves (combinations with 4 stay in tune)
+    countIn: 1,           // bars of clicks before Pieces and Scales start
+    restAfter: 20,        // minutes of playing before a rest reminder (0 = off)
+    handsFree: false,     // with the mic: a short note starts the count-in
+    pedal: true,          // page-turner pedal keys: → / Page Down = Space, ← / Page Up = Esc
+    keepAwake: false,     // keep the screen on while the app is open (stand mode always does)
     cbColors: false,      // colour-blind friendly grading colours
     fRead: 'concert',     // Fingerings: read in 'concert' pitch, 'band' (brass band treble clef) or 'tenor' clef
     echoLevel: 1,         // Echo: phrase difficulty 1–4
@@ -96,12 +101,30 @@ const TP = (() => {
   }
   const store = load();
   const S = store.settings;
+  // The saved data's format. Bump it and add a step to migrate() when the shape changes.
+  //   1: everything at the top level (per-instrument history copied there too)
+  //   2: per-instrument history saved only under byInst
+  const SCHEMA = 2;
+  function migrate() {
+    // 1 -> 2 needs nothing on load: applyInstrument reads byInst, and the stale
+    // top-level copies are simply left out of the next save (see serialize).
+    store.schema = SCHEMA;
+  }
+  migrate();
+  // Everything once: store.notes, store.pieces… are the current instrument's history,
+  // which also lives under byInst — so they're left out here rather than saved twice.
+  const serialize = space => JSON.stringify(store, function (k, v) {
+    return this === store && PER_INSTRUMENT.includes(k) && store.byInst ? undefined : v;
+  }, space);
+  // Opened by the tests' smoke check (index.html?smoke): look but never save.
+  const SMOKE = /[?&]smoke\b/.test(location.search);
   // Returns false if it couldn't save (storage blocked or full). The first failure
   // says so (once, until a save works again); `quiet` callers report it themselves.
   let saveWarned = false;
   function save(quiet = false) {
+    if (SMOKE) return true;
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      localStorage.setItem(STORE_KEY, serialize());
       saveWarned = false;
       return true;
     } catch (e) {
@@ -117,6 +140,17 @@ const TP = (() => {
   if (/^iowa_/.test(S.tone)) S.tone = 'iowa';
 
   const $ = id => document.getElementById(id);
+
+  // A short message at the bottom of the screen.
+  let toastTimer = 0;
+  function toast(text, ms = 4000) {
+    const t = $('toast');
+    if (!t) return;
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+  }
 
   // ---------- practice log ----------
   const dayKey = (d = new Date()) => d.toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
@@ -211,6 +245,27 @@ const TP = (() => {
     return map;
   }
   const flatLabel = midi => label(spell(midi, 'flats'));
+  // A menu of every note on the chart, keeping its choice; by default an open note
+  // in the middle of your practice range.
+  function noteMenu(sel, def) {
+    const keep = sel.value;
+    sel.textContent = '';
+    for (const m of ALL_MIDI) sel.add(new Option(flatLabel(m), m));
+    const mid = def !== undefined ? def
+      : ALL_MIDI.find(m => m >= (S.low + S.high) / 2 && FINGERINGS[m] && FINGERINGS[m][0] === '') || ALL_MIDI[Math.floor(ALL_MIDI.length / 2)];
+    sel.value = keep && FINGERINGS[keep] ? keep : mid;
+  }
+  // The alternate fingering your intonation map found sits clearly better (8¢+) than
+  // the main one, or null.
+  function myFingering(midi) {
+    const d = store.intonation && store.intonation[midi];
+    if (!d || !d.alts || d.c === undefined || !FINGERINGS[midi]) return null;
+    let best = null;
+    for (const [f, a] of Object.entries(d.alts)) {
+      if (f !== d.f && Math.abs(d.c) - Math.abs(a.c) >= 8 && (!best || Math.abs(a.c) < Math.abs(best[1].c))) best = [f, a];
+    }
+    return best ? best[0] : null;
+  }
   // How far a valve combination lands from in tune, in cents (+ = sharp), on an ideal
   // horn: each valve's tubing is cut for the open horn, so two or more together are
   // too short. Compensating 4-valve horns fix the combinations that use the 4th valve.
@@ -643,6 +698,28 @@ const TP = (() => {
   // How forgiving timed modes are.
   const timingScale = () => ({ strict: 0.6, normal: 1, lenient: 1.7 }[S.timing] || 1);
   const graceFor = dur => Math.min(0.2 * timingScale(), dur * 0.45 * timingScale());
+  // Grading one note of a timed exercise (Scales, Pieces, Echo), due at audio time t
+  // and lasting dur seconds. With the valves: what was held on the beat. With the mic:
+  // whether it sounded, starting near t (a real note takes a moment to speak). Call it
+  // once its window has closed, at t + gradeWait(dur, mic). `again`: the same pitch as
+  // the note before, so it has to be played again, not just held over.
+  const micWindow = dur => Math.min(0.45, Math.max(0.2, dur * 0.8));
+  const gradeWait = (dur, mic) => (mic ? micWindow(dur) : graceFor(dur));
+  function gradeNote(t, midi, dur, mic, again = false) {
+    if (mic) {
+      const first = api.mic.heard(midi, t - 0.15, t + micWindow(dur), 2, again);
+      return { grade: first === null ? 'miss' : first <= t + 0.12 ? 'perfect' : 'late', played: null };
+    }
+    const j = judgeBeat(t, midi, graceFor(dur));
+    return { grade: j.grade, played: j.played };
+  }
+  // A − / + tempo control: clamps, shows and saves; returns the setter (for the + and − keys).
+  function tempoControl(outId, slowerId, fasterId, { min, max, get, put }) {
+    const set = v => { put(Math.max(min, Math.min(max, Math.round(v)))); $(outId).textContent = get(); save(); return get(); };
+    $(slowerId).addEventListener('click', () => set(get() - 4));
+    $(fasterId).addEventListener('click', () => set(get() + 4));
+    return set;
+  }
 
   // ---------- your sound in play-along ----------
   // The note sounds when you finger it right — on its beat, or the moment you get
@@ -796,7 +873,8 @@ const TP = (() => {
 
   const api = {
     outputUntil: -1,
-    S, store, save, $, ALL_MIDI, modes: {},
+    S, store, save, serialize, $, ALL_MIDI, modes: {}, toast, SMOKE,
+    noteMenu, myFingering, gradeNote, gradeWait, tempoControl,
     activity, progress, onProgress: fn => progressListeners.push(fn), markDone, doneToday, dayKey,
     LETTERS, NATURAL_PC, ACC_TEXT, SHARPS, MAJOR_FIFTHS, MAJOR_STEPS,
     spell, spellAs, label, flatLabel, fmtFingering, checkFingering, tonicPc, tonicName,

@@ -300,11 +300,7 @@
     const f = TP.MAJOR_FIFTHS[k];
     keySel.add(new Option(`${TP.tonicName(k)} major (${f ? Math.abs(f) + (f > 0 ? '♯' : '♭') : 'no sharps/flats'})`, k));
   }
-  function setTempo(v) {
-    S.fTempo = Math.max(30, Math.min(200, Math.round(v)));
-    $('fTempoOut').textContent = S.fTempo;
-    save();
-  }
+  const setTempo = TP.tempoControl('fTempoOut', 'fSlower', 'fFaster', { min: 30, max: 200, get: () => S.fTempo, put: v => { S.fTempo = v; } });
   function syncControls() {
     $('fMode').value = S.fMode;
     $('fEar').checked = S.fEar;
@@ -346,8 +342,6 @@
       start();
     });
   }
-  $('fSlower').addEventListener('click', () => setTempo(S.fTempo - 4));
-  $('fFaster').addEventListener('click', () => setTempo(S.fTempo + 4));
 
   function start() {
     if (S.fMode === 'timed') {
@@ -381,6 +375,7 @@
       TP.setSubmitLabel('Submit');
     },
     settingsChanged() { renderGrid(); start(); },
+    autoStart: () => S.fMode === 'timed' && !timed,
     preloadNotes: range,
     submit,
     hear() { if (q) TP.playMidi(q.midi); },

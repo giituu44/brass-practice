@@ -10,17 +10,24 @@
   <header class="top">
     <h1><span class="logo">brass<i>·</i>practice</span> <button id="instBtn" class="inst-btn" title="Change instrument"></button></h1>
     <nav class="tabs" role="tablist" aria-label="Sections">
+      <span class="nav-h" aria-hidden="true">Practice</span>
       <button class="tab" role="tab" aria-selected="false" data-tab="today"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5l2.2 2.2 4.6-4.6"/></svg><span>Today</span></button>
       <button class="tab" role="tab" aria-selected="false" data-tab="warmup"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3M3 15h14a3 3 0 1 1-3 3M3 12h7"/></svg><span>Warm-up</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
+      <span class="nav-h" aria-hidden="true">Technique</span>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="echo"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M9 6v12M13 9v6"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg><span>Echo</span></button>
+      <span class="nav-h" aria-hidden="true">Music</span>
       <button class="tab" role="tab" aria-selected="false" data-tab="pieces"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Pieces</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="echo"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M9 6v12M13 9v6"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg><span>Echo</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="player"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg><span>Recordings</span></button>
+      <span class="nav-h" aria-hidden="true">Tools</span>
       <button class="tab" role="tab" aria-selected="false" data-tab="tuner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/><path d="M4 20h16"/></svg><span>Tuner</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="progress"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="progress"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></button>
+      <button class="tab tab-more" role="tab" aria-selected="false" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
+      <button class="tab" id="tabMore" aria-haspopup="true" aria-expanded="false" title="More sections"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span id="tabMoreLabel">More</span></button>
     </nav>
+    <div id="moreSheet" class="more-sheet" hidden role="menu" aria-label="More sections"></div>
     <span id="progress" class="progress" title="Days in a row you've practised · minutes today"></span>
     <div class="input-seg" role="group" aria-label="Answer with">
       <button id="keysSeg" title="Answer with the valve keys (J K L ;) or the pistons on screen">⌨ <span class="seg-label">Keys</span></button>
@@ -159,6 +166,7 @@
         <span class="tb-spacer"></span>
         <button id="scListen" class="pill ghost" title="Hear the whole scale">▶ Listen</button>
         <button id="scRestart" class="pill ghost" title="Restart (R)">↺ Restart</button>
+        <button class="pill ghost stand-btn" aria-pressed="false" title="Music-stand mode: big music, no menus, the screen stays on (F)">⛶</button>
       </div>
       <div class="stage-main wide">
         <div class="staff-scroll" id="scScroll"><svg id="scStaff" role="img" aria-label="Scale on the staff"></svg></div>
@@ -177,6 +185,7 @@
         <button id="pcBrowse" class="pill ghost" title="Browse all pieces (B)">☰ Library <kbd>B</kbd></button>
         <button id="pcNew" class="pill ghost" hidden>🎲 New <kbd>N</kbd></button>
         <button id="pcImport" class="pill ghost">＋ Add music</button>
+        <button class="pill ghost stand-btn" aria-pressed="false" title="Music-stand mode: big music, no menus, the screen stays on (F)">⛶ Stand</button>
       </div>
       <div class="toolbar">
         <label class="pill"><span>Mode</span>
@@ -479,9 +488,9 @@
   <dialog id="settings">
     <form method="dialog">
       <h2>Settings</h2>
-
-      <h3 class="set-h">Instrument</h3>
-      <label>Instrument <select id="setInstrument"></select></label>
+      <div class="seg set-seg" role="tablist"><button type="button" data-sec="inst" class="active">Instrument</button><button type="button" data-sec="sound">Sound</button><button type="button" data-sec="timing">Practice &amp; timing</button><button type="button" data-sec="mic">Keys &amp; mic</button><button type="button" data-sec="look">Look &amp; data</button></div>
+      <div class="set-sec" data-sec="inst">
+            <label>Instrument <select id="setInstrument"></select></label>
       <label class="check" id="setCompRow"><input type="checkbox" id="setComp"> Compensating valves (the 4th-valve combinations stay in tune)</label>
       <div class="row">
         <label>Lowest note <select id="setLow"></select></label>
@@ -502,9 +511,9 @@
           </select>
         </label>
       </div>
-
-      <h3 class="set-h">Sound</h3>
-      <div class="row">
+      </div>
+      <div class="set-sec" data-sec="sound" hidden>
+            <div class="row">
         <label>Instrument sound <select id="setTone"></select></label>
         <label>Tuning (A =)
           <select id="setA4"><option value="438">438 Hz</option><option value="439">439 Hz</option><option value="440">440 Hz</option><option value="441">441 Hz</option><option value="442">442 Hz</option><option value="443">443 Hz</option><option value="444">444 Hz</option><option value="445">445 Hz</option><option value="446">446 Hz</option></select>
@@ -515,9 +524,9 @@
       <label class="check"><input type="checkbox" id="setSound"> Fingerings: play the note after answering</label>
       <label class="check"><input type="checkbox" id="setAutoplay"> Fingerings: play the note when it appears</label>
       <label class="check"><input type="checkbox" id="setShowName"> Fingerings: show the note name before answering</label>
-
-      <h3 class="set-h">Timing</h3>
-      <div class="row">
+      </div>
+      <div class="set-sec" data-sec="timing" hidden>
+            <div class="row">
         <label>How strict
           <select id="setTiming"><option value="strict">Strict</option><option value="normal">Normal</option><option value="lenient">Lenient</option></select>
         </label>
@@ -528,16 +537,26 @@
           </span>
         </label>
       </div>
+      <div class="row">
+        <label>Count-in (Pieces, Scales)
+          <select id="setCountIn"><option value="1">1 bar</option><option value="2">2 bars (time to breathe)</option></select>
+        </label>
+        <label>Rest reminder
+          <select id="setRest"><option value="0">Off</option><option value="15">After 15 min of playing</option><option value="20">After 20 min</option><option value="30">After 30 min</option></select>
+        </label>
+      </div>
       <div id="calBox" class="cal-box" hidden>
         <p id="calMsg">Tap <kbd>Space</kbd> (or any valve key) exactly on each click.</p>
         <div class="beat-dots" id="calDots"></div>
       </div>
-
-      <h3 class="set-h">Keys &amp; mic</h3>
-      <label>Valve keys <span class="keybinds" id="setKeys"></span>
+      </div>
+      <div class="set-sec" data-sec="mic" hidden>
+            <label>Valve keys <span class="keybinds" id="setKeys"></span>
         <small class="sub">Click one, then press the key you want. If a fingering never registers, your keyboard may not detect those keys together — pick others.</small>
       </label>
       <label class="check"><input type="checkbox" id="setAnyOctave"> Microphone: accept the right note in any octave</label>
+      <label class="check"><input type="checkbox" id="setHandsFree"> Hands-free start (mic): play a short note and the count-in begins</label>
+      <label class="check"><input type="checkbox" id="setPedal"> Page-turner pedal: → or Page Down starts / goes on (like Space), ← or Page Up stops</label>
       <div class="row">
         <label>Mic sensitivity
           <select id="setMicSens"><option value="low">Low (noisy room)</option><option value="normal">Normal</option><option value="high">High (quiet mic)</option></select>
@@ -559,17 +578,19 @@
         <p id="micCalMsg"></p>
         <div class="beat-dots" id="micCalDots"></div>
       </div>
-
-      <h3 class="set-h">Look &amp; data</h3>
-      <label>Theme
+      </div>
+      <div class="set-sec" data-sec="look" hidden>
+            <label>Theme
         <select id="setTheme"><option value="auto">Auto (system)</option><option value="dark">Dark</option><option value="light">Light</option></select>
       </label>
+      <label class="check"><input type="checkbox" id="setAwake"> Keep the screen on while the app is open (tablets and phones on a stand)</label>
       <label class="check"><input type="checkbox" id="setCB"> Colour-blind friendly colours (blue for right, orange for late or wrong)</label>
       <div class="backup-row">
-        <span>Your progress lives in this browser.</span>
+        <span>Your progress lives in this browser. Recordings of your takes stay here too — they aren't in the backup file.</span>
         <button type="button" id="backupBtn" class="small-btn">⬇ Back up</button>
         <button type="button" id="restoreBtn" class="small-btn">⬆ Restore</button>
         <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+      </div>
       </div>
       <div class="dialog-actions">
         <button type="button" id="resetBtn" class="danger">Reset stats</button>
@@ -591,6 +612,7 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" hidden></div>
+  <button id="standExit" class="stand-exit" hidden title="Leave stand mode (Esc)" aria-label="Leave stand mode">✕</button>
 
   <dialog id="importDlg">
     <form method="dialog" onsubmit="return false">
@@ -756,6 +778,7 @@
   <script src="js/mode-progress.js"></script>
   <script src="js/mode-chart.js"></script>
   <script src="js/metronome.js"></script>
+  <script src="js/stand.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@
   function mapHint(midi, f) {
     const d = store.intonation && store.intonation[midi];
     if (d && d.c !== undefined) {
-      const better = TP.myFingering ? TP.myFingering(midi) : null;
+      const better = TP.myFingering(midi);
       return ` · your map: usually ${d.c > 0 ? '+' : ''}${d.c}¢ on ${TP.fmtFingering(d.f)}` + (better !== null ? ` (${TP.fmtFingering(better)} sits better)` : '');
     }
     const c = f ? TP.comboCents(f[0]) : 0;
@@ -64,7 +64,7 @@
       await TP.mic.start();
       $('tunStatus').textContent = '';
     } catch (e) {
-      $('tunStatus').textContent = micError(e);
+      $('tunStatus').textContent = TP.micError(e);
     }
     renderBtn();
     render(null);
@@ -76,24 +76,10 @@
     if (TP.mic.active) { TP.mic.stop(); renderBtn(); render(null); } else startMic();
   });
 
-  function micError(e) {
-    if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
-      return 'Microphone access was blocked. Allow it in the browser’s address bar (or site settings) and try again.';
-    }
-    if (e && e.name === 'NotFoundError') return 'No microphone found.';
-    return (e && e.message) || 'Couldn’t start the microphone.';
-  }
-  TP.micError = micError;
 
   // Note menus shared with the Warm-up tab (long tones, tonguing) and the drone.
   function fillNotes() {
-    for (const sel of [$('ltNote'), $('drNote'), $('tgNote')]) {
-      const keep = sel.value;
-      sel.textContent = '';
-      for (const m of TP.ALL_MIDI) sel.add(new Option(TP.flatLabel(m), m));
-      const mid = TP.ALL_MIDI.find(m => m >= (S.low + S.high) / 2 && FINGERINGS[m] && FINGERINGS[m][0] === '') || TP.ALL_MIDI[Math.floor(TP.ALL_MIDI.length / 2)];
-      sel.value = keep && FINGERINGS[keep] ? keep : mid;
-    }
+    for (const sel of [$('ltNote'), $('drNote'), $('tgNote')]) TP.noteMenu(sel);
   }
   TP.fillNoteSelects = fillNotes;
 
