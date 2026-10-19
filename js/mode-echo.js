@@ -86,7 +86,7 @@
   // Hidden while you listen and answer; the music appears afterwards.
   function showHidden() {
     const box = $('ecScore');
-    box.innerHTML = `<div class="echo-hidden">${'<span>?</span>'.repeat(tl ? tl.notes.length : 3)}</div>`;
+    box.innerHTML = `<div class="echo-hidden" role="img" aria-label="A hidden phrase of ${tl ? tl.notes.length : 3} notes">${'<span aria-hidden="true">?</span>'.repeat(tl ? tl.notes.length : 3)}</div>`;
   }
   let view = null;
   function reveal(states) {

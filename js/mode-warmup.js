@@ -181,6 +181,7 @@
     drawTg(t, res, starts);
     const hits = res.filter(x => x !== null);
     TP.activity();
+    if (hits.length >= t.want.length / 3) TP.markDone('tonguing');
     if (hits.length < t.want.length / 3) {
       tgSay(`Heard ${hits.length} of ${t.want.length} notes. Play a little louder (or raise Mic sensitivity in Settings), with headphones on.`, 'bad');
       return;

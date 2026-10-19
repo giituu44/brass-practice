@@ -194,6 +194,18 @@ svg .hit:hover { fill: var(--brass-soft); fill-opacity: .5; }
 /* Today */
 .today-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .td-mins { margin-top: 8px; }
+.prog-summary { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.prog-chart { width: 100%; height: auto; display: block; }
+.prog-chart .bar { fill: var(--good); opacity: .75; }
+.prog-chart .bar.now { opacity: 1; }
+.prog-chart .grid { stroke: var(--line); }
+.prog-chart .axis { font-size: 10px; fill: var(--muted); }
+.prog-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prog-table th, .prog-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.prog-table th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+#prJournal p { margin: 4px 0; white-space: pre-wrap; }
+#tdCustomPop { display: inline-block; margin-left: 6px; }
+.td-custom { display: grid; gap: 2px; min-width: 240px; }
 .ring {
   --p: 0; width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -746,6 +758,7 @@ svg .annot.flat { fill: #6fa8ef; }
 .cal-box p { margin: 0 0 6px; }
 .cal-box .beat-dots { margin: 6px 0 2px; gap: 10px; }
 .cal-box .dot { width: 14px; height: 14px; }
+.beat-dots .dot.ghost { border-style: dashed; opacity: .7; }
 .lt-graph, .tg-graph { display: block; width: 100%; height: auto; margin: 10px 0 2px; background: var(--valve); border-radius: 10px; }
 .lt-graph .loud { fill: none; stroke: var(--good); stroke-width: 2; }
 .lt-graph .target { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; opacity: .55; }
@@ -966,3 +979,18 @@ details.metro-pop > summary::after { content: none; }
 .nav-pair button:hover:not(:disabled) { background: var(--valve); }
 .nav-pair button:disabled { color: var(--line); cursor: default; }
 a.replay-btn { text-decoration: none; color: var(--ink); font-weight: 600; font-size: 13.5px; padding: 0 12px; }
+
+/* Colour-blind friendly grading (Settings): blue for right, orange for late, vermilion
+   for wrong — the Okabe–Ito colours, which stay apart for every common colour blindness.
+   Grading also shows marks (× wrong, › late), so it never rests on colour alone. */
+:root[data-cb], :root[data-cb][data-theme="light"] {
+  --good: #0072b2; --good-soft: #d3e6f4; --warn: #b87700; --mid-soft: #f6e6c3; --bad: #d55e00; --bad-soft: #f7dccc;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-cb]:not([data-theme="light"]) { --good: #56b4e9; --good-soft: #17323f; --warn: #e69f00; --mid-soft: #3d3418; --bad: #ff8c4a; --bad-soft: #45291b; }
+}
+:root[data-cb][data-theme="dark"] { --good: #56b4e9; --good-soft: #17323f; --warn: #e69f00; --mid-soft: #3d3418; --bad: #ff8c4a; --bad-soft: #45291b; }
+
+/* Keyboard users see where they are. */
+button:focus-visible, summary:focus-visible, select:focus-visible, a:focus-visible,
+input:focus-visible, textarea:focus-visible, .tab:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }

@@ -613,7 +613,9 @@ const TP = (() => {
   function renderValves() {
     for (const b of valveBtns) {
       const v = b.dataset.valve;
-      b.classList.toggle('down', held.has(v) || touched.has(v) || latched.has(v));
+      const down = held.has(v) || touched.has(v) || latched.has(v);
+      b.classList.toggle('down', down);
+      b.setAttribute('aria-pressed', String(down));
     }
     const f = fingering();
     if (f !== lastFingering) {
@@ -714,6 +716,7 @@ const TP = (() => {
       const b = document.createElement('button');
       b.className = 'valve' + (slide ? ' pos' : '') + (!slide && i === 3 ? ' fourth' : '');
       b.dataset.valve = v;
+      b.setAttribute('aria-label', slide ? `Slide position ${v} (key ${key})` : `Valve ${v} (key ${key === ';' ? 'semicolon' : key.toUpperCase()})`);
       // Valves look like real pistons: finger button, stem, and the casing with its key.
       b.innerHTML = slide
         ? `<span class="num">${v}</span><kbd>${key.toUpperCase()}</kbd>`

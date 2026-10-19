@@ -18,8 +18,12 @@
   function describe() {
     const i = TP.inst();
     const what = i.kind === 'slide' ? 'Slide positions' : 'Main fingering';
-    $('chartDesc').textContent = `${i.name}${i.id === 'tuba-bb4' ? ', non-compensating' : ''}${i.transpose ? ' — written pitch' : ', concert pitch'}. `
-      + `${what} underneath, alternates below it. Click a note to hear it; notes outside your practice range are faded.`;
+    const four = i.kind === 'valve' && i.valves === 4;
+    $('chartDesc').textContent = `${i.name}${four ? (S.compensating ? ', compensating' : ', non-compensating') : ''}${i.transpose ? ' — written pitch' : ', concert pitch'}. `
+      + `${what} underneath, alternates below it. Click a note to hear it; notes outside your practice range are faded.`
+      + (i.kind === 'valve' ? (four && !S.compensating
+        ? ' Fingerings that use three or four valves together run sharp on a non-compensating horn (hover a note to see roughly how much): pull slides or lip down, and measure your own in Tuner → Intonation map.'
+        : ' Three-valve combinations (123, 13) run a little sharp: pull the 3rd or 1st slide.') : '');
   }
   const SINGLE = 46, PAIR = 80, LEFT = 56;
 
@@ -42,7 +46,8 @@
       } else {
         items.push({ note: flat, x: cx + 4, cls, ...text });
       }
-      cols.push({ m, x, w, label: TP.label(flat) + (pair ? ' / ' + TP.label(sharp) : '') });
+      const sharpBy = TP.comboCents(main);
+      cols.push({ m, x, w, label: TP.label(flat) + (pair ? ' / ' + TP.label(sharp) : '') + (sharpBy >= 15 ? ` · ${TP.fmtFingering(main)} runs about ${sharpBy}¢ sharp in theory` : '') });
       x += w;
     }
     svg.dataset.width = x + 10;

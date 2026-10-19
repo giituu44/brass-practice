@@ -9,16 +9,17 @@
 <body>
   <header class="top">
     <h1><span class="logo">brass<i>·</i>practice</span> <button id="instBtn" class="inst-btn" title="Change instrument"></button></h1>
-    <nav class="tabs">
-      <button class="tab" data-tab="today"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5l2.2 2.2 4.6-4.6"/></svg><span>Today</span></button>
-      <button class="tab" data-tab="warmup"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3M3 15h14a3 3 0 1 1-3 3M3 12h7"/></svg><span>Warm-up</span></button>
-      <button class="tab" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
-      <button class="tab" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
-      <button class="tab" data-tab="pieces"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Pieces</span></button>
-      <button class="tab" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
-      <button class="tab" data-tab="echo"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M9 6v12M13 9v6"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg><span>Echo</span></button>
-      <button class="tab" data-tab="tuner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/><path d="M4 20h16"/></svg><span>Tuner</span></button>
-      <button class="tab" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" aria-selected="false" data-tab="today"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8.5 14.5l2.2 2.2 4.6-4.6"/></svg><span>Today</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="warmup"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3M3 15h14a3 3 0 1 1-3 3M3 12h7"/></svg><span>Warm-up</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="fingerings"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2.4"/><circle cx="12" cy="8" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 10.4V19M12 10.4V19M18 10.4V19M3.5 19h17"/></svg><span>Fingerings</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="scales"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h4v-4h4v-4h4V7h4"/><circle cx="6" cy="17" r="1.2"/><circle cx="10" cy="13" r="1.2"/><circle cx="14" cy="9" r="1.2"/><circle cx="18" cy="5" r="1.2"/></svg><span>Scales</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="pieces"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>Pieces</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="rhythm"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span>Rhythm</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="echo"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M9 6v12M13 9v6"/><path d="M17 8a5 5 0 0 1 0 8M19.5 5.5a8.5 8.5 0 0 1 0 13"/></svg><span>Echo</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="tuner"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/><path d="M4 20h16"/></svg><span>Tuner</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="progress"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="chart"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M3.5 15h17M9.5 4v16M15 4v16"/></svg><span>Chart</span></button>
     </nav>
     <span id="progress" class="progress" title="Days in a row you've practised · minutes today"></span>
     <div class="input-seg" role="group" aria-label="Answer with">
@@ -26,7 +27,7 @@
       <button id="micBtn" title="Answer by playing your instrument into the microphone" aria-pressed="false">🎤 <span id="micLive">Mic</span></button>
     </div>
     <details class="pop metro-pop" id="metro">
-      <summary class="icon-btn metro-btn" title="Metronome"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span id="metroMini"></span></summary>
+      <summary class="icon-btn metro-btn" title="Metronome" aria-label="Metronome"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8l-2.5-17h-3zM12 15l5-9"/><circle cx="17.5" cy="5.5" r="1.3"/></svg><span id="metroMini"></span></summary>
       <div class="pop-body metro-body">
         <div class="metro-head"><b>Metronome</b><span class="beat-dots" id="metroDots"></span></div>
         <div class="metro-bpm">
@@ -36,8 +37,15 @@
         </div>
         <input type="range" id="metroRange" min="30" max="260" step="1" aria-label="Tempo">
         <div class="pop-row">
-          <label class="pill"><span>Beats</span><select id="metroBeats"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select></label>
+          <label class="pill"><span>Beats</span><select id="metroBeats"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option></select></label>
           <label class="pill"><span>Clicks</span><select id="metroSub"><option value="1">beats</option><option value="2">eighths</option><option value="3">triplets</option><option value="4">16ths</option></select></label>
+        </div>
+        <div class="pop-row">
+          <label class="pill" title="Which beats are stressed in a bar of 5, 6 or 7"><span>Groups</span><select id="metroGroup"></select></label>
+        </div>
+        <div class="pop-row">
+          <label class="pill" title="Silent bars: does your pulse hold on its own?"><span>Gaps</span><select id="metroGap"><option value="">off</option><option value="1-1">play 1 · silent 1</option><option value="2-2">play 2 · silent 2</option><option value="3-1">play 3 · silent 1</option><option value="4-4">play 4 · silent 4</option></select></label>
+          <label class="pill" title="A little faster every few bars, while it runs"><span>Speed up</span><select id="metroRamp"><option value="">off</option><option value="2-4">+2 every 4 bars</option><option value="4-4">+4 every 4 bars</option><option value="4-8">+4 every 8 bars</option><option value="5-2">+5 every 2 bars</option></select></label>
         </div>
         <div class="pop-row">
           <button id="metroTap" class="pill">Tap</button>
@@ -55,7 +63,8 @@
       <section class="card">
         <div class="today-head">
           <div><h2 id="tdDate"></h2><p class="sub tight" id="tdSub"></p>
-            <label class="pill td-mins" title="How long you have today: the routine fits it"><span>Time</span><select id="tdMins"><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option></select></label>
+            <label class="pill td-mins" title="How long you have today: the routine fits it"><span>Time</span><select id="tdMins"><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="mine">My routine</option></select></label>
+            <details class="pop" id="tdCustomPop"><summary class="pill ghost">Customize</summary><div class="pop-body"><p class="sub tight">Your own routine: tick the steps you want.</p><div id="tdCustom" class="td-custom"></div></div></details>
           </div>
           <div class="ring" id="tdRing"></div>
         </div>
@@ -92,6 +101,7 @@
           </select>
         </label>
         <label class="pill"><span>Key</span><select id="fKey"></select></label>
+        <label class="pill" id="fReadRow" title="Read brass band parts (treble clef, transposed) or tenor clef"><span>Read in</span><select id="fRead"><option value="concert">Concert pitch</option><option value="band">Brass band treble clef</option><option value="tenor">Tenor clef</option></select></label>
         <span class="tb-group" id="fTimedOpts">
           <span class="pill stepper" title="Tempo"><button id="fSlower" aria-label="Slower">−</button><span class="bpm"><output id="fTempoOut">60</output><small>bpm</small></span><button id="fFaster" aria-label="Faster">+</button></span>
           <label class="pill"><span>Every</span><select id="fBeats"><option value="1">beat</option><option value="2">2 beats</option><option value="4">4 beats</option></select></label>
@@ -409,14 +419,39 @@
       
       
       <section class="card">
-        <h2>Drone</h2>
-        <p class="sub">A steady reference note to tune against. Use headphones while the mic listens.</p>
+        <h2>Drone &amp; chord tuning</h2>
+        <p class="sub">A steady note to tune against. Pick which note of the chord you're playing and the tuner aims for where an ensemble tunes it — a major third about 14¢ low, a fifth 2¢ high — not the tuner's equal temperament. Use headphones while the mic listens.</p>
         <div class="toolbar">
-          <label class="pill"><span>Note</span><select id="drNote"></select></label>
+          <label class="pill"><span>Drone</span><select id="drNote"></select></label>
+          <label class="pill"><span>Chord</span><select id="drChord"><option value="root">Root</option><option value="fifth">Root + fifth</option></select></label>
+          <label class="pill"><span>I play the</span><select id="drRole"><option value="">(just tune)</option><option value="0">root or octave</option><option value="7">fifth</option><option value="4">major third</option><option value="3">minor third</option><option value="9">major sixth</option><option value="10">seventh (barbershop)</option></select></label>
           <button id="drBtn" class="pill">▶ Play drone</button>
         </div>
+        <p id="drTarget" class="sub tight"></p>
       </section>
       </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="panel" id="panel-progress" hidden>
+      <section class="card">
+        <div class="today-head">
+          <div><h2>Your progress</h2><p class="sub tight">All your practice so far; records are for <span id="prInst"></span>.</p></div>
+          <div class="pop-row">
+            <button id="prReport" class="pill primary" title="A one-page summary of the last 7 days, to print or send">Weekly report</button>
+            <button id="prReportSave" class="pill ghost" title="Download the weekly report as a file">⬇</button>
+          </div>
+        </div>
+        <div id="prSummary" class="stats prog-summary"></div>
+        <h3>Minutes per week</h3>
+        <div id="prWeeks"></div>
+      </section>
+      <div class="today-row">
+        <section class="card"><h2>Personal records</h2><table id="prRecords" class="prog-table"></table></section>
+        <section class="card"><h2>Tuning over time</h2><div id="prTuning"></div></section>
+      </div>
+      <section class="card"><h2>Tempo and score, piece by piece</h2><div class="staff-scroll"><table id="prTempos" class="prog-table"></table></div><p class="sub tight">Score · tempo (bpm), first run, latest and best.</p></section>
+      <section class="card"><h2>Recent journal notes</h2><div id="prJournal"></div></section>
     </div>
 
     <!-- Chart -->
@@ -447,6 +482,7 @@
 
       <h3 class="set-h">Instrument</h3>
       <label>Instrument <select id="setInstrument"></select></label>
+      <label class="check" id="setCompRow"><input type="checkbox" id="setComp"> Compensating valves (the 4th-valve combinations stay in tune)</label>
       <div class="row">
         <label>Lowest note <select id="setLow"></select></label>
         <label>Highest note <select id="setHigh"></select></label>
@@ -528,6 +564,7 @@
       <label>Theme
         <select id="setTheme"><option value="auto">Auto (system)</option><option value="dark">Dark</option><option value="light">Light</option></select>
       </label>
+      <label class="check"><input type="checkbox" id="setCB"> Colour-blind friendly colours (blue for right, orange for late or wrong)</label>
       <div class="backup-row">
         <span>Your progress lives in this browser.</span>
         <button type="button" id="backupBtn" class="small-btn">⬇ Back up</button>
@@ -670,6 +707,9 @@
       <h3>Practice</h3>
       <ul>
         <li><b>Today</b> — a routine sized to the time you have (10–45 min); <kbd>Space</kbd> starts the next step. Every other day the piece is the next study from your method books.</li>
+        <li><b>Warm-up</b> — breathing, mouthpiece buzzing, long tones with a shape, tonguing, lip slurs and a range builder.</li>
+        <li><b>Echo</b> — hear a short phrase, play it back by ear in the next bar.</li>
+        <li><b>Progress</b> — your practice over months, records, tempo and tuning trends, and a weekly report for a teacher.</li>
         <li><b>Fingerings</b> — read a note, finger it. <b>Auto</b> moves on when you're right; <b>Timed</b> brings notes on the beat.</li>
         <li><b>Scales</b> — every major and minor, straight or in a pattern (thirds, groups of four, arpeggio), played along with the click (green on time, amber late, red wrong).</li>
         <li><b>Pieces</b> — warm-ups, études, melodies, sight-reading, and the <b>method books</b>: Kopprasch's 60 Studies and 53 Bordogni vocalises. <kbd>B</kbd> opens the library. The music scrolls past the gold line; you hear your note as you finger it, and misses show the right fingering.
@@ -713,6 +753,7 @@
   <script src="js/mode-intonation.js"></script>
   <script src="js/mode-warmup.js"></script>
   <script src="js/mode-echo.js"></script>
+  <script src="js/mode-progress.js"></script>
   <script src="js/mode-chart.js"></script>
   <script src="js/metronome.js"></script>
   <script src="js/main.js"></script>

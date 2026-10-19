@@ -11,7 +11,10 @@
     S.tab = tab;
     save();
     for (const [id, m] of Object.entries(TP.modes)) $(m.panel).hidden = id !== tab;
-    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    });
     active = TP.modes[tab];
     valvePanel.hidden = !active.valves;
     if (active.valves) $(active.panel).querySelector('.valve-slot').appendChild(valvePanel);
@@ -95,6 +98,8 @@
   function fillSettings() {
     fillInstrumentOptions();
     $('setInstrument').value = S.instrument;
+    $('setComp').checked = !!S.compensating;
+    $('setCompRow').hidden = !(TP.inst().kind === 'valve' && TP.inst().valves === 4);
     setLow.value = S.low;
     setHigh.value = S.high;
     $('setSpelling').value = S.spelling;
@@ -112,6 +117,7 @@
     $('setLatency').value = S.latencyMs;
     $('setA4').value = String(S.a4 || 440);
     $('setTheme').value = S.theme;
+    $('setCB').checked = !!S.cbColors;
     renderKeybinds();
   }
 
@@ -272,6 +278,7 @@
   function applyTheme() {
     if (S.theme === 'auto') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = S.theme;
+    if (S.cbColors) document.documentElement.dataset.cb = '1'; else delete document.documentElement.dataset.cb;
   }
   applyTheme();
   const openSettings = () => { if (active) active.leave(); fillSettings(); dlg.showModal(); };
@@ -294,6 +301,7 @@
       showName: $('setShowName').checked,
       tone: $('setTone').value,
       micAnyOctave: $('setAnyOctave').checked,
+      compensating: $('setComp').checked,
       micSens: $('setMicSens').value,
       micLatencyMs: Math.max(-100, Math.min(400, Number($('setMicLatency').value) || 0)),
       youSound: $('setYouSound').checked,
@@ -301,6 +309,7 @@
       timing: $('setTiming').value,
       latencyMs: Math.max(-100, Math.min(400, Number($('setLatency').value) || 0)),
       theme: $('setTheme').value,
+      cbColors: $('setCB').checked,
       a4: Number($('setA4').value) || 440,
     });
     applyTheme();

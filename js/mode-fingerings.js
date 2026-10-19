@@ -19,11 +19,36 @@
     const inKey = all.filter(m => letters[m % 12]);
     return inKey.length ? inKey : all;
   }
-  const fifths = () => (S.fKey === 'all' ? 0 : TP.MAJOR_FIFTHS[S.fKey]);
+  // Reading in another clef. Brass band parts are in treble clef and transposed: a B♭
+  // bass reads two octaves and a tone above how it sounds, an E♭ bass an octave and a
+  // sixth, a euphonium or tenor trombone a ninth. Tenor clef is at concert pitch.
+  const BAND = { 'tuba-bb4': 26, 'tuba-bb3': 26, 'tuba-eb4': 21, euph4: 14, trombone: 14 };
+  const TENOR = { euph4: true, trombone: true };
+  function reading() {
+    const id = TP.inst().id;
+    if (S.fRead === 'band' && BAND[id]) return { clef: 'treble', up: BAND[id] };
+    if (S.fRead === 'tenor' && TENOR[id]) return { clef: 'tenor', up: 0 };
+    return { clef: TP.inst().clef, up: 0 };
+  }
+  // The key as written: a transposed part moves its key signature too (B♭ bass: +2 sharps).
+  function writtenKey() {
+    if (S.fKey === 'all') return null;
+    let df = ((reading().up * 7) % 12 + 12) % 12;
+    if (df > 6) df -= 12;
+    const f = TP.MAJOR_FIFTHS[S.fKey] + df;
+    return Object.keys(TP.MAJOR_FIFTHS).find(k => TP.MAJOR_FIFTHS[k] === f) || S.fKey;
+  }
+  const fifths = () => (S.fKey === 'all' ? 0 : TP.MAJOR_FIFTHS[writtenKey()]);
+  // The note as you read it (written), but graded and played by what it sounds (midi).
   function spellNote(midi) {
-    if (S.fKey === 'all') return TP.spell(midi, S.spelling);
-    const letter = TP.majorLetters(S.fKey)[midi % 12];
-    return letter ? TP.spellAs(midi, letter) : TP.spell(midi, S.spelling);
+    const w = midi + reading().up;
+    let n;
+    if (S.fKey === 'all') n = TP.spell(w, S.spelling);
+    else {
+      const letter = TP.majorLetters(writtenKey())[w % 12];
+      n = letter ? TP.spellAs(w, letter) : TP.spell(w, S.spelling);
+    }
+    return { ...n, midi };
   }
 
   function record(midi, ok, ms) {
@@ -107,8 +132,11 @@
     const f = fifths();
     const width = f ? 270 : 240, x = f ? 180 : 150;
     const items = q && !hidden(state) ? [{ note: q, x, cls: state, acc: TP.shownAccidentals([q], f)[0] }] : [];
-    TP.drawStaff(svg, width, items, TP.stepRange(S.low, S.high), { fifths: f });
+    const rd = reading(), was = TP.useClef(rd.clef);
+    TP.drawStaff(svg, width, items, TP.stepRange(S.low + rd.up, S.high + rd.up), { fifths: f });
     if (hidden(state)) svg.appendChild(TP.el('text', { x, y: TP.yOf(4) + 12, 'font-size': 36, 'text-anchor': 'middle', class: 'ear-q' }, '?'));
+    TP.useClef(was);
+    svg.setAttribute('aria-label', !q ? 'Staff' : hidden(state) ? 'A hidden note: listen to it' : `Note: ${TP.label(q)}`);
   }
   // The note's name, unless that would give the answer away.
   const nameText = () => (S.showName && !S.fEar ? TP.label(q) : ' ');
@@ -281,6 +309,13 @@
     $('fMode').value = S.fMode;
     $('fEar').checked = S.fEar;
     keySel.value = S.fKey;
+    // Brass band and tenor clef only where the instrument reads them.
+    const id = TP.inst().id;
+    $('fRead').querySelector('[value="band"]').disabled = !BAND[id];
+    $('fRead').querySelector('[value="tenor"]').disabled = !TENOR[id];
+    if ((S.fRead === 'band' && !BAND[id]) || (S.fRead === 'tenor' && !TENOR[id])) S.fRead = 'concert';
+    $('fRead').value = S.fRead || 'concert';
+    $('fReadRow').hidden = !BAND[id] && !TENOR[id];
     $('fBeats').value = S.fBeats;
     setTempo(S.fTempo);
     $('fTimedOpts').hidden = S.fMode !== 'timed';
@@ -295,9 +330,11 @@
     }[S.fMode];
     TP.setSubmitLabel(S.fMode === 'timed' ? (timed ? 'Stop' : 'Start') : usingMic() ? 'Show answer' : 'Submit');
   }
-  for (const id of ['fMode', 'fKey', 'fBeats', 'fEar']) {
+  for (const id of ['fMode', 'fKey', 'fBeats', 'fEar', 'fRead']) {
     $(id).addEventListener('change', e => {
       stopTimed();
+      S.fRead = $('fRead').value;
+      q = null;
       S.fMode = $('fMode').value;
       S.fKey = keySel.value;
       S.fBeats = Number($('fBeats').value);

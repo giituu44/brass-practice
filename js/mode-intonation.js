@@ -36,7 +36,9 @@
     if (Math.abs(c) <= IN_TUNE) return 'in tune';
     const mm = slideMm(f, c), where = slideName(f);
     if (TP.inst().kind === 'slide') return c > 0 ? `move the slide out ~${mm} mm` : `bring the slide in ~${mm} mm`;
-    return c > 0 ? `pull ${where} out ~${mm} mm (or lip down)` : `push ${where} in ~${mm} mm if it has room (or lip up)`;
+    // Combinations run sharp by design on a non-compensating horn: say so.
+    const why = c > 0 && TP.comboCents(f) >= 15 ? (S.compensating ? ' — combinations run a little sharp' : ' — valve combinations run sharp on a non-compensating horn') : '';
+    return (c > 0 ? `pull ${where} out ~${mm} mm (or lip down)` : `push ${where} in ~${mm} mm if it has room (or lip up)`) + why;
   }
 
   // ---------- measuring ----------

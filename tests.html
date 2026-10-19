@@ -101,16 +101,39 @@
   eq('BB♭ tuba: B♭0 pedal is open', FINGERINGS[22], ['']);
   eq('BB♭ tuba: F4 is open', FINGERINGS[65], ['']);
   check('Any valid fingering is accepted', TP.checkFingering(29, '13').ok);
+  // Valve combinations on an ideal non-compensating horn: the textbook sharpness.
+  TP.S.compensating = false;
+  eq('1+3 runs about 30¢ sharp (non-compensating)', TP.comboCents('13'), 30);
+  eq('1+2+3+4 runs about 175¢ sharp (non-compensating)', TP.comboCents('1234'), 175);
+  eq('One valve alone is in tune', TP.comboCents('1'), 0);
+  TP.S.compensating = true;
+  eq('Compensating: 1+2+4 is in tune', TP.comboCents('124'), 0);
+  check('Compensating: 1+2+3 (no 4th valve) still runs sharp', TP.comboCents('123') > 40);
+  TP.S.compensating = false;
+  {
+    // Tenor clef: middle C sits on the fourth line (step 6 above the bottom line, D3).
+    const was = TP.useClef('tenor');
+    eq('Tenor clef puts middle C on the fourth line', TP.stepOf(TP.spell(60, 'flats')), 6);
+    TP.useClef('treble');
+    eq('Treble clef puts G4 on the second line', TP.stepOf(TP.spell(67, 'flats')), 2);
+    TP.useClef(was);
+    eq('Bass clef is back afterwards (F3 on the fourth line)', TP.stepOf(TP.spell(53, 'flats')), 6);
+  }
 
   // ---------- the built-in music ----------
   section('Built-in music');
   const SC = TP.score;
   let parsed = 0, broken = [], badBars = [];
-  for (const item of LIBRARY) {
+  // Duets have a second part (abc2): check it too, and that both parts are the same length.
+  const parts = LIBRARY.flatMap(item => (item.abc2 ? [[item.id, item.abc], [item.id + ' part 2', item.abc2]] : [[item.id, item.abc]]));
+  const lengths = {};
+  for (const [id, abc] of parts) {
+    const item = { id };
     let p;
-    try { p = SC.parseABC(item.abc); } catch (e) { broken.push(`${item.id} (${e.message})`); continue; }
+    try { p = SC.parseABC(abc); } catch (e) { broken.push(`${item.id} (${e.message})`); continue; }
     if (!p || !p.measures || !p.measures.length) { broken.push(item.id); continue; }
     parsed++;
+    lengths[id] = SC.timeline(p).total;
     // Every bar but the first (a pickup) and the last adds up to the time signature,
     // except a bar split in two (at a repeat sign, or a section's pickup that another
     // short bar completes) and a cadenza (a free-time run, at least twice a bar long).
@@ -127,6 +150,9 @@
   }
   check(`All ${LIBRARY.length} built-in pieces parse`, !broken.length, broken.slice(0, 5).join(', '));
   check('Every inner bar adds up to its time signature', !badBars.length, `${badBars.length} short or long bars` + (badBars.length ? ': ' + badBars.slice(0, 4).join(', ') : ''));
+  const duets = LIBRARY.filter(p => p.abc2);
+  check(`The ${duets.length} duets' two parts are the same length`, duets.length > 0 && duets.every(d => lengths[d.id] === lengths[d.id + ' part 2']),
+    duets.filter(d => lengths[d.id] !== lengths[d.id + ' part 2']).map(d => d.id).join(', '));
   eq('Kopprasch has 60 studies', LIBRARY.filter(p => p.book === 'Kopprasch Op. 6').length, 60);
   eq('Bordogni has 53 vocalises', LIBRARY.filter(p => p.book === 'Bordogni vocalises').length, 53);
   {
