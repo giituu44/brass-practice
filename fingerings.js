@@ -4,8 +4,10 @@
 //
 // Valve lowers by: 2 = 1 semitone, 1 = 2, 12 or 3 = 3, 23 = 4, 4 or 13 = 5,
 // 24 or 123 = 6, 14 = 7, 124 = 8, 234 = 9, 134 = 10.
-// Open partials: Bb1, F2, Bb2, D3, F3, (Ab3 flat), Bb3, C4, D4.
+// Open partials: (pedal Bb0), Bb1, F2, Bb2, D3, F3, (Ab3 flat), Bb3, C4, D4, F4.
 const FINGERINGS = {
+  22: [""],             // Bb0 (pedal)
+  23: ["1234"],         // B0
   24: ["134"],          // C1
   25: ["234"],          // C#1 / Db1
   26: ["124"],          // D1
@@ -45,4 +47,7 @@ const FINGERINGS = {
   60: ["", "1"],        // C4
   61: ["2"],            // C#4 / Db4
   62: [""],             // D4
+  63: ["1"],            // Eb4
+  64: ["2"],            // E4
+  65: [""],             // F4
 };

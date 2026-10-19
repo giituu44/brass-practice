@@ -16,10 +16,12 @@
     if (d % 3 === 2) return { key: MINORS[Math.floor(d / 3) % MINORS.length], type: 'harmonic' };
     return { key: MAJORS[d % MAJORS.length], type: 'major' };
   }
+  // The next few pieces you haven't got to 80% yet, easiest first, taking turns by
+  // day (so one hard piece doesn't take over every day).
   function pieceOfDay() {
     const pieces = LIBRARY.filter(p => p.cat !== 'Warm-ups' && p.cat !== 'Method books').sort((a, b) => a.level - b.level);
-    const unfinished = pieces.find(p => !store.pieces[p.id] || store.pieces[p.id].best < 80);
-    return unfinished || pieces[dayNo() % pieces.length];
+    const unfinished = pieces.filter(p => !store.pieces[p.id] || store.pieces[p.id].best < 80).slice(0, 3);
+    return unfinished.length ? unfinished[dayNo() % unfinished.length] : pieces[dayNo() % pieces.length];
   }
   // Every other day, the last step is a method-book study instead: the next one in the book
   // you haven't got to 80% yet, alternating Bordogni (singing line) and Kopprasch (technique).
@@ -29,27 +31,67 @@
     if (!list.length) return null;
     return list.find(p => !store.pieces[p.id] || store.pieces[p.id].best < 80) || list[dayNo() % list.length];
   }
+  // Sight-reading at the first level you haven't yet read at 80%.
+  function sightLevel() {
+    let l = 1;
+    while (l < 3 && store.pieces['sight-' + l] && store.pieces['sight-' + l].best >= 80) l++;
+    return l;
+  }
   const typeName = { major: 'major', harmonic: 'harmonic minor' };
+  // Relative minor of each major scale of the day, and relative major of each minor.
+  const RELATIVE = {
+    major: { Bb: 'G', F: 'D', Eb: 'C', C: 'A', Ab: 'F', G: 'E', Db: 'Bb', D: 'B', A: 'F#', E: 'C#' },
+    harmonic: { G: 'Bb', D: 'F', C: 'Eb', F: 'Ab', A: 'C', E: 'G', B: 'D' },
+  };
+  const MINS = [10, 20, 30, 45];
 
+  // The routine for the time you have: 10 min is the core, longer adds rhythm, then
+  // lip slurs and sight-reading, then a second scale and both a study and a piece.
   function steps() {
-    const sc = scaleOfDay(), study = dayNo() % 2 ? studyOfDay() : null, pc = study || pieceOfDay();
+    const mins = MINS.includes(Number(S.todayMins)) ? Number(S.todayMins) : 20;
+    const sc = scaleOfDay(), study = studyOfDay();
+    const pieces = mins >= 45 && study ? [study, pieceOfDay()] : [dayNo() % 2 && study ? study : pieceOfDay()];
     const warm = LIBRARY.find(p => p.id === WARMUPS[dayNo() % WARMUPS.length]);
-    const scaleId = `${sc.key} ${sc.type} 1`;
-    const rec = store.pieces[pc.id];
     const answered = TP.doneToday('notes');
-    return [
+    const drill = mins <= 10 ? 10 : mins >= 45 ? 30 : 20;
+    const scaleStep = (id, key, type, title, sub) => ({
+      id, icon: '🎼', title: `${title}: ${TP.tonicName(key)} ${typeName[type]}`, sub,
+      done: TP.doneToday(`scale:${key} ${type} 1`) > 0,
+      go: () => { Object.assign(S, { scaleKey: key, scaleType: type, scaleOctaves: 1, scaleStart: null, scaleMode: 'flow', scalePattern: 'straight' }); TP.show('scales'); },
+    });
+    const list = [
       { id: 'warmup', icon: '🌬️', title: `Warm up: ${warm.title}`, sub: 'Long, steady notes and slurs to get the air going.',
         done: TP.doneToday('warmup') > 0, go: () => { S.pieceId = warm.id; TP.show('pieces'); } },
-      { id: 'scale', icon: '🎼', title: `Scale of the day: ${TP.tonicName(sc.key)} ${typeName[sc.type]}`, sub: 'One octave, up and down, with the metronome.',
-        done: TP.doneToday('scale:' + scaleId) > 0,
-        go: () => { Object.assign(S, { scaleKey: sc.key, scaleType: sc.type, scaleOctaves: 1, scaleStart: null, scaleMode: 'flow' }); TP.show('scales'); } },
-      { id: 'notes', icon: '🎯', title: 'Note drill: 20 notes', sub: answered ? `${Math.min(answered, 20)} of 20 done — your weakest notes come up most.` : 'Your weakest notes come up most.',
-        done: answered >= 20, go: () => TP.show('fingerings') },
-      { id: 'rhythm', icon: '🥁', title: `Rhythm reading (level ${S.rhythmLevel})`, sub: 'Tap one rhythm along with the click.',
-        done: TP.doneToday('rhythm') > 0, go: () => TP.show('rhythm') },
-      { id: 'piece', icon: study ? '📖' : '🎵', title: `${study ? 'Study' : 'Piece'}: ${pc.title}`, sub: rec ? `Your best is ${rec.best}% — play it through once.` : 'Play it through once (try “Wait for me” first).',
-        done: TP.doneToday('piece:' + pc.id) > 0, go: () => { S.pieceId = pc.id; TP.show('pieces'); } },
+      scaleStep('scale', sc.key, sc.type, 'Scale of the day', 'One octave, up and down, with the metronome.'),
     ];
+    if (mins >= 45) {
+      const rel = RELATIVE[sc.type][sc.key];
+      list.push(scaleStep('scale2', rel, sc.type === 'major' ? 'harmonic' : 'major', 'Its relative', 'Same key signature, a different home note.'));
+    }
+    list.push({ id: 'notes', icon: '🎯', title: `Note drill: ${drill} notes`, sub: answered ? `${Math.min(answered, drill)} of ${drill} done — your weakest notes come up most.` : 'Your weakest notes come up most.',
+      done: answered >= drill, go: () => TP.show('fingerings') });
+    if (mins >= 20) {
+      list.push({ id: 'rhythm', icon: '🥁', title: `Rhythm reading (level ${S.rhythmLevel})`, sub: 'Tap one rhythm along with the click.',
+        done: TP.doneToday('rhythm') > 0, go: () => TP.show('rhythm') });
+    }
+    if (mins >= 30) {
+      const opts = TP.slurOptions ? TP.slurOptions() : [];
+      if (opts.length) {
+        const f = opts[dayNo() % opts.length], id = `slur:${f === '' ? 'open' : f}:${Object.keys(TP.slurPatterns)[0]}`;
+        list.push({ id: 'slurs', icon: '〰️', title: `Lip slurs on ${TP.fmtFingering(f)}`, sub: 'Air and lips only: move between the partials of one fingering.',
+          done: TP.doneToday('piece:' + id) > 0, go: () => { S.pieceId = id; TP.show('pieces'); } });
+      }
+      const sl = sightLevel();
+      list.push({ id: 'sight', icon: '👀', title: `Sight-reading (level ${sl})`, sub: 'A new melody, once through, without stopping.',
+        done: TP.doneToday('sight') > 0, go: () => { S.pieceId = 'sight-' + sl; TP.show('pieces'); } });
+    }
+    for (const pc of pieces) {
+      const rec = store.pieces[pc.id], isStudy = pc === study;
+      list.push({ id: 'piece:' + pc.id, icon: isStudy ? '📖' : '🎵', title: `${isStudy ? 'Study' : 'Piece'}: ${pc.title}`,
+        sub: rec ? `Your best is ${rec.best}% — play it through once.` : 'Play it through once (try “Wait for me” first).',
+        done: TP.doneToday('piece:' + pc.id) > 0, go: () => { S.pieceId = pc.id; TP.show('pieces'); } });
+    }
+    return list;
   }
 
   function render() {
@@ -61,6 +103,7 @@
     $('tdSub').textContent = done === list.length
       ? `All done today — great work! ${p.minutes} min practised.`
       : `${done} of ${list.length} done · ${p.minutes} min today · ${p.streak ? `🔥 ${p.streak}-day streak` : 'start a streak today'}`;
+    $('tdMins').value = String(MINS.includes(Number(S.todayMins)) ? S.todayMins : 20);
     $('tdRing').style.setProperty('--p', done / list.length);
     $('tdRing').textContent = `${done}/${list.length}`;
 
@@ -132,6 +175,7 @@
   }
 
   TP.onProgress(() => { if (!$('panel-today').hidden) render(); });
+  $('tdMins').addEventListener('change', e => { S.todayMins = Number(e.target.value); TP.save(); render(); });
 
   TP.modes.today = {
     panel: 'panel-today',

@@ -17,6 +17,7 @@ const TP = (() => {
     showName: false,
     tone: 'iowa',     // a key of SAMPLE_SETS, or 'synth'
     tab: 'today',
+    todayMins: 20,        // the daily routine fits this many minutes
     input: 'valves',      // 'valves' (keyboard/touch) or 'mic' (play your tuba)
     micAnyOctave: false,  // accept the right note name in the wrong octave
     youSound: true,       // play-along: your note sounds when you finger it right
@@ -59,6 +60,14 @@ const TP = (() => {
     rhythmLevel: 1,
     rhythmBars: 2,
     clickDuring: true,
+    rhythmTime: null,     // '2/4' '3/4' '4/4' '6/8' (null: from beats)
+    scalePattern: 'straight',
+    micSens: 'normal',    // mic sensitivity: 'low' (noisy room) | 'normal' | 'high' (quiet mic)
+    micLatencyMs: 0,      // how late the mic hears you (Settings: calibrate with your horn)
+    ltShape: 'steady',    // long tones: 'steady' | 'cres' | 'dim' | 'swell'
+    tgBpm: 80,            // tonguing trainer tempo
+    tgSub: 4,             // …and notes per beat
+    intAlts: false,       // intonation map: measure alternate fingerings too
   };
 
   // ---------- storage ----------
@@ -308,11 +317,25 @@ const TP = (() => {
   // ---------- sound ----------
   // Real tuba samples come from sounds/tuba-*.js (MIDI.js soundfonts: one base64
   // MP3 per note, keyed like "Bb1"). If a set is missing, fall back to the synth.
-  const SF = (window.MIDI && MIDI.Soundfont) || {};
+  // Each set is a 0.5–3 MB script, so only the one in use is loaded, when first
+  // needed (an added <script> tag works from file://, unlike fetch).
   const SAMPLE_SETS = {
-    iowa: SF.tuba_iowa, phil: SF.tuba_phil, musyng: SF.tuba_musyng, fluid: SF.tuba_fluid,
-    trumpet: SF.trumpet_phil, trombone: SF.trombone_phil,
+    iowa: ['sounds/tuba-iowa.js', 'tuba_iowa'], phil: ['sounds/tuba-phil.js', 'tuba_phil'],
+    musyng: ['sounds/tuba-musyng.js', 'tuba_musyng'], fluid: ['sounds/tuba-fluid.js', 'tuba_fluid'],
+    trumpet: ['sounds/trumpet-phil.js', 'trumpet_phil'], trombone: ['sounds/trombone-phil.js', 'trombone_phil'],
   };
+  const loading = {};
+  const loadedSet = name => (SAMPLE_SETS[name] && window.MIDI && MIDI.Soundfont && MIDI.Soundfont[SAMPLE_SETS[name][1]]) || null;
+  // Resolves once the set has loaded (or failed to: then the synth plays instead).
+  function loadSet(name = tone()) {
+    if (!SAMPLE_SETS[name] || loadedSet(name)) return Promise.resolve();
+    return loading[name] || (loading[name] = new Promise(done => {
+      const s = document.createElement('script');
+      s.src = SAMPLE_SETS[name][0];
+      s.onload = s.onerror = () => done();
+      document.head.appendChild(s);
+    }));
+  }
   // Concert pitch in Hz for a MIDI note, at the chosen A (440, 442...).
   const hz = midi => (S.a4 || 440) * Math.pow(2, (midi - 69) / 12);
 
@@ -349,7 +372,7 @@ const TP = (() => {
     const [letter, acc] = FLATS[midi % 12];
     return letter + (acc ? 'b' : '') + (Math.floor(midi / 12) - 1);
   };
-  const currentSet = () => SAMPLE_SETS[tone()] || null;
+  const currentSet = () => loadedSet(tone());
 
   // The recording to use for a note: its own, or the nearest one within 5
   // semitones, pitch-shifted (the Philharmonia set has a note every 2-5 semitones).
@@ -376,19 +399,25 @@ const TP = (() => {
 
   // Decode notes ahead of time so playing them isn't delayed.
   function preload(midis) {
-    if (!actx) return Promise.resolve();
-    const jobs = [];
-    for (const m of midis) {
-      const s = findSample(m);
-      if (s) jobs.push(decodeSample(s.key).catch(() => {}));
-    }
-    return Promise.all(jobs);
+    return loadSet().then(() => {
+      if (!actx) return null;
+      const jobs = [];
+      for (const m of midis) {
+        const s = findSample(m);
+        if (s) jobs.push(decodeSample(s.key).catch(() => {}));
+      }
+      return Promise.all(jobs);
+    });
   }
 
   // Play a (written-pitch) note now, or at audio time `at`. Resolves to something
   // with stop(). `gate`: the microphone ignores what it hears while this plays
   // (so the app doesn't grade its own sound). Play-along guide notes pass false.
   function playMidi(written, dur = 1.3, at = 0, gate = true, vol = 1) {
+    // The very first note may have to wait a moment for its sample set to load.
+    if (!currentSet() && SAMPLE_SETS[tone()] && !loading[tone() + ':done']) {
+      return loadSet().then(() => { loading[tone() + ':done'] = true; return playMidi(written, dur, at, gate, vol); });
+    }
     const midi = written - inst.transpose;     // what it sounds like
     try {
       const ctx = audio();
@@ -515,14 +544,15 @@ const TP = (() => {
   const VALVE_KEYS = {};      // key -> valve (or slide position); set per instrument
   let valveBtns = [];
   const held = new Set();     // keys physically held down
-  const latched = new Set();  // valves toggled by click/tap
+  const touched = new Set();  // valves held down by a finger on a touch screen
+  const latched = new Set();  // valves toggled by mouse click
   // Valves: every valve down, e.g. "124". Slide: the position, e.g. "3".
   function fingering() {
     if (inst.kind === 'slide') {
-      const all = [...latched, ...held];
+      const all = [...latched, ...held, ...touched];
       return all.length ? all[all.length - 1] : '';
     }
-    return [...new Set([...held, ...latched])].sort().join('');
+    return [...new Set([...held, ...touched, ...latched])].sort().join('');
   }
 
   // Every fingering change, stamped with the audio time being heard, so timed
@@ -542,7 +572,7 @@ const TP = (() => {
   function renderValves() {
     for (const b of valveBtns) {
       const v = b.dataset.valve;
-      b.classList.toggle('down', held.has(v) || latched.has(v));
+      b.classList.toggle('down', held.has(v) || touched.has(v) || latched.has(v));
     }
     const f = fingering();
     if (f !== lastFingering) {
@@ -633,6 +663,7 @@ const TP = (() => {
     box.textContent = '';
     for (const k of Object.keys(VALVE_KEYS)) delete VALVE_KEYS[k];
     held.clear();
+    touched.clear();
     latched.clear();
     const slide = inst.kind === 'slide';
     const keys = slide ? ['1', '2', '3', '4', '5', '6', '7'] : (S.valveKeys || ['j', 'k', 'l', ';']).slice(0, inst.valves);
@@ -647,7 +678,29 @@ const TP = (() => {
         ? `<span class="num">${v}</span><kbd>${key.toUpperCase()}</kbd>`
         : `<span class="cap"></span><span class="stem"></span><span class="casing"><b>${key === ';' ? ';' : key.toUpperCase()}</b><small>${v}</small></span>`;
       b.addEventListener('mousedown', e => e.preventDefault());
+      // Touch: a valve is down while your finger is on it, like a real one, and
+      // several fingers can hold several valves. The mouse can only click, so a
+      // click toggles a valve instead.
+      let byTouch = false;
+      b.addEventListener('pointerdown', e => {
+        byTouch = e.pointerType !== 'mouse';
+        if (!byTouch) return;
+        e.preventDefault();
+        try { b.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
+        latched.clear();
+        touched.add(v);
+        renderValves();
+      });
+      const lift = e => {
+        if (e.pointerType === 'mouse' || !touched.has(v)) return;
+        touched.delete(v);
+        renderValves();
+      };
+      b.addEventListener('pointerup', lift);
+      b.addEventListener('pointercancel', lift);
+      b.addEventListener('contextmenu', e => { if (byTouch) e.preventDefault(); });
       b.addEventListener('click', () => {
+        if (byTouch) { byTouch = false; return; }
         if (slide) { const on = latched.has(v); latched.clear(); if (!on) latched.add(v); }
         else if (latched.has(v)) latched.delete(v);
         else latched.add(v);
@@ -660,8 +713,8 @@ const TP = (() => {
     const hint = $('valveHint');
     if (hint) {
       hint.innerHTML = slide
-        ? 'Slide: hold <kbd>1</kbd>–<kbd>7</kbd> for the position (or tap one).'
-        : `Valves: hold ${keys.map(k => `<kbd>${k.toUpperCase()}</kbd>`).join(' ')} (or tap the buttons). No valves = open.`;
+        ? 'Slide: hold <kbd>1</kbd>–<kbd>7</kbd> for the position (or touch and hold one; a mouse click picks one).'
+        : `Valves: hold ${keys.map(k => `<kbd>${k.toUpperCase()}</kbd>`).join(' ')}, or hold the pistons with your fingers on a touch screen (a mouse click toggles one). No valves = open.`;
     }
     lastFingering = '';
   }
@@ -693,6 +746,7 @@ const TP = (() => {
     S.low = Math.max(ALL_MIDI[0], r.low);
     S.high = Math.min(ALL_MIDI[ALL_MIDI.length - 1], r.high);
     buildInputs();
+    loadSet();
     if ($('instBtn')) $('instBtn').textContent = inst.short + ' ▾';
     save();
   }
@@ -706,10 +760,10 @@ const TP = (() => {
     keyFifths, keySigAcc, shownAccidentals, majorLetters,
     el, stepOf, yOf, stepRange, drawStaff, drawStaffBase, staffStart, accGlyph,
     audio, heardTime, preload, playMidi, playPiano, click, makeRun, hz,
-    VALVE_KEYS, held, fingering, renderValves, markAnswer, clearLatched, resetValves,
+    VALVE_KEYS, held, touched, fingering, renderValves, markAnswer, clearLatched, resetValves,
     logValves, fingeringAt, judgeBeat, onValves: fn => valveListeners.push(fn), setSubmitLabel,
     inputTime, graceFor, timingScale, soundAsYouPlay, producedBy,
-    inst: () => inst, applyInstrument, tone, SOUND_NAMES, buildInputs,
+    inst: () => inst, applyInstrument, tone, SOUND_NAMES, buildInputs, loadSet,
     inputWord: () => (inst.kind === 'slide' ? 'slide position' : 'valves'),
   };
   applyInstrument(S.instrument);

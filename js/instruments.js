@@ -54,7 +54,7 @@ const INSTRUMENTS = (() => {
     { id: 'tuba-bb4', name: 'B♭ tuba (BB♭), 4 valves', short: 'BB♭ tuba', kind: 'valve', valves: 4, clef: 'bass', transpose: 0,
       fund: 22, chart: () => BBB_CHART, range: [29, 53], center: 41, sounds: TUBA_SOUNDS },
     { id: 'tuba-bb3', name: 'B♭ tuba (BB♭), 3 valves', short: 'BB♭ tuba', kind: 'valve', valves: 3, clef: 'bass', transpose: 0,
-      fund: 22, chart: () => valveChart(22, 3, 28, 62), range: [29, 53], center: 41, sounds: TUBA_SOUNDS },
+      fund: 22, chart: () => valveChart(22, 3, 28, 65), range: [29, 53], center: 41, sounds: TUBA_SOUNDS },
     { id: 'tuba-cc4', name: 'C tuba (CC), 4 valves', short: 'CC tuba', kind: 'valve', valves: 4, clef: 'bass', transpose: 0,
       fund: 24, chart: () => valveChart(24, 4, 26, 64), range: [31, 55], center: 43, sounds: TUBA_SOUNDS },
     { id: 'tuba-eb4', name: 'E♭ tuba, 4 valves', short: 'E♭ tuba', kind: 'valve', valves: 4, clef: 'bass', transpose: 0,

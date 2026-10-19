@@ -52,7 +52,9 @@
     <div class="panel" id="panel-today" hidden>
       <section class="card">
         <div class="today-head">
-          <div><h2 id="tdDate"></h2><p class="sub tight" id="tdSub"></p></div>
+          <div><h2 id="tdDate"></h2><p class="sub tight" id="tdSub"></p>
+            <label class="pill td-mins" title="How long you have today: the routine fits it"><span>Time</span><select id="tdMins"><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option></select></label>
+          </div>
           <div class="ring" id="tdRing"></div>
         </div>
         <ol id="tdSteps" class="steps"></ol>
@@ -118,6 +120,7 @@
       <div class="toolbar">
         <label class="pill"><span>Key</span><select id="scKey"></select></label>
         <label class="pill"><span>Scale</span><select id="scType"></select></label>
+        <label class="pill" title="How the scale is played: straight up and down, or in a pattern"><span>Pattern</span><select id="scPattern"></select></label>
         <label class="pill"><span>Octaves</span><select id="scOct"><option value="1">1</option><option value="2">2</option></select></label>
         <label class="pill"><span>Mode</span>
           <select id="scMode">
@@ -219,7 +222,7 @@
       <div class="toolbar">
         <label class="pill"><span>Level</span><select id="rhLevel"></select></label>
         <label class="pill"><span>Bars</span><select id="rhBars"><option value="1">1</option><option value="2">2</option></select></label>
-        <label class="pill"><span>Time</span><select id="rhBeats"><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option></select></label>
+        <label class="pill"><span>Time</span><select id="rhBeats"><option value="2/4">2/4</option><option value="3/4">3/4</option><option value="4/4">4/4</option><option value="6/8">6/8</option></select></label>
         <span class="pill stepper" title="Tempo"><button id="rhSlower" aria-label="Slower">−</button><span class="bpm"><output id="rhTempoOut">80</output><small>bpm</small></span><button id="rhFaster" aria-label="Faster">+</button></span>
         <details class="pop">
           <summary class="pill ghost">Options</summary>
@@ -266,6 +269,7 @@
             <p class="sub tight">Play every note in your range, one at a time, and see which ones sit sharp or flat — and how far to move a slide to fix it.</p>
           </div>
           <span class="tb-spacer"></span>
+          <label class="check" title="Measure every fingering of each note, to find which sits best on your horn"><input type="checkbox" id="intAlts"> Alternate fingerings too</label>
           <button id="intStart" class="pill primary">Start</button>
         </div>
         <div id="intLive" class="inton-live" hidden>
@@ -283,14 +287,29 @@
       <div class="today-row">
       <section class="card">
         <h2>Long-tone challenge</h2>
-        <p class="sub">Hold one note as long and as steadily as you can. The timer starts when it hears the note.</p>
+        <p class="sub">Hold one note as long and as steadily as you can, in the shape you pick. The timer starts when it hears the note.</p>
         <div class="toolbar">
           <label class="pill"><span>Note</span><select id="ltNote"></select></label>
           <label class="pill"><span>Goal</span><select id="ltGoal"><option value="8">8 s</option><option value="12">12 s</option><option value="16">16 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+          <label class="pill" title="How loud over the note: the dashed line on the graph"><span>Shape</span><select id="ltShape"><option value="steady">Steady</option><option value="cres">Crescendo</option><option value="dim">Diminuendo</option><option value="swell">Swell (messa di voce)</option></select></label>
           <button id="ltStart" class="pill primary">Start</button>
         </div>
         <div class="bar-h big"><span id="ltBar" style="width:0%"></span></div>
+        <svg id="ltGraph" class="lt-graph" viewBox="0 0 300 96" role="img" aria-label="Loudness and pitch over the note" hidden></svg>
+        <div class="lt-key" id="ltKey" hidden><i class="k-loud"></i>loudness <i class="k-target"></i>aim <i class="k-pitch"></i>pitch (±30¢)</div>
         <p id="ltMsg" class="feedback">&nbsp;</p>
+      </section>
+      <section class="card">
+        <h2>Tonguing</h2>
+        <p class="sub">Tongue one note in time with the click; see how even your notes are. For double tonguing (T-K), it shows whether the K notes lag. Use headphones.</p>
+        <div class="toolbar">
+          <label class="pill"><span>Note</span><select id="tgNote"></select></label>
+          <label class="pill"><span>Notes</span><select id="tgSub"><option value="2">8ths</option><option value="3">Triplets</option><option value="4">16ths</option></select></label>
+          <span class="pill stepper" title="Tempo"><button id="tgSlower" aria-label="Slower">−</button><span class="bpm"><output id="tgBpm">80</output><small>bpm</small></span><button id="tgFaster" aria-label="Faster">+</button></span>
+          <button id="tgStart" class="pill primary">Start</button>
+        </div>
+        <svg id="tgGraph" class="tg-graph" viewBox="0 0 300 44" role="img" aria-label="Your note starts against the beat" hidden></svg>
+        <p id="tgMsg" class="feedback">&nbsp;</p>
       </section>
       <section class="card">
         <h2>Lip slurs</h2>
@@ -396,6 +415,27 @@
         <small class="sub">Click one, then press the key you want. If a fingering never registers, your keyboard may not detect those keys together — pick others.</small>
       </label>
       <label class="check"><input type="checkbox" id="setAnyOctave"> Microphone: accept the right note in any octave</label>
+      <div class="row">
+        <label>Mic sensitivity
+          <select id="setMicSens"><option value="low">Low (noisy room)</option><option value="normal">Normal</option><option value="high">High (quiet mic)</option></select>
+        </label>
+        <label>Mic delay (ms)
+          <span class="cal-row">
+            <input type="number" id="setMicLatency" class="num-input" min="-100" max="400" step="5" title="How late the mic hears you. Raise it if notes you play on time are marked late.">
+            <button type="button" id="micCalBtn" class="small-btn" title="Play short notes on the clicks to measure it">Calibrate…</button>
+          </span>
+        </label>
+      </div>
+      <div class="mic-meter-row">
+        <span class="sub">Mic level</span>
+        <span class="mic-meter" title="The line marks the quietest sound counted as playing"><span id="micMeter"></span><i id="micMeterGate"></i></span>
+        <button type="button" id="micTestBtn" class="small-btn">Test mic</button>
+      </div>
+      <p id="micMeterTxt" class="sub tight"></p>
+      <div id="micCalBox" class="cal-box" hidden>
+        <p id="micCalMsg"></p>
+        <div class="beat-dots" id="micCalDots"></div>
+      </div>
 
       <h3 class="set-h">Look &amp; data</h3>
       <label>Theme
@@ -542,14 +582,14 @@
         <b>Mic:</b> switch <b>⌨ Keys / 🎤 Mic</b> at the bottom of the sidebar to play your real instrument instead — it checks the note and the partial.</p>
       <h3>Practice</h3>
       <ul>
-        <li><b>Today</b> — a five-step routine; <kbd>Space</kbd> starts the next step. Every other day the last step is the next study from your method books.</li>
+        <li><b>Today</b> — a routine sized to the time you have (10–45 min); <kbd>Space</kbd> starts the next step. Every other day the piece is the next study from your method books.</li>
         <li><b>Fingerings</b> — read a note, finger it. <b>Auto</b> moves on when you're right; <b>Timed</b> brings notes on the beat.</li>
-        <li><b>Scales</b> — every major and minor, played along with the click (green on time, amber late, red wrong).</li>
+        <li><b>Scales</b> — every major and minor, straight or in a pattern (thirds, groups of four, arpeggio), played along with the click (green on time, amber late, red wrong).</li>
         <li><b>Pieces</b> — warm-ups, études, melodies, sight-reading, and the <b>method books</b>: Kopprasch's 60 Studies and 53 Bordogni vocalises. <kbd>B</kbd> opens the library. The music scrolls past the gold line; you hear your note as you finger it, and misses show the right fingering.
           Under <b>Options</b>: start/end bars (or click a bar), loop (with a 4-bpm speed-up after clean runs), key, octave, guide, memorize.
           After a run it points out your trouble spot; with the mic it records you (<kbd>P</kbd> to hear your take) and shows which notes were sharp or flat. <b>History</b> charts your runs.</li>
-        <li><b>Rhythm</b> — <kbd>Space</kbd> for a count-in, then tap each note.</li>
-        <li><b>Tuner</b> — tuner, an <b>intonation map</b> (play every note; see which sit sharp or flat and roughly how far to move which slide), a <b>lip slur builder</b> (pick a fingering; practise its partials with the mic), long tones and a drone.</li>
+        <li><b>Rhythm</b> — <kbd>Space</kbd> for a count-in, then tap each note (with the mic on, play them on your instrument). 2/4 to 6/8, up to triplets.</li>
+        <li><b>Tuner</b> — tuner, an <b>intonation map</b> (play every note; see which sit sharp or flat and roughly how far to move which slide), a <b>lip slur builder</b> (pick a fingering; practise its partials with the mic), long tones with a dynamic shape, a <b>tonguing</b> trainer and a drone.</li>
       </ul>
       <h3>Your own music</h3>
       <p><b>＋ Add music</b> imports MusicXML/MXL (MuseScore, Sibelius, Finale, Dorico), ABC, or PDFs exported from notation software (read automatically — check it against the page). Scans: copy them in with the note palette.</p>
@@ -564,12 +604,7 @@
     </form>
   </dialog>
 
-  <script src="sounds/tuba-iowa.js"></script>
-  <script src="sounds/tuba-phil.js"></script>
-  <script src="sounds/tuba-musyng.js"></script>
-  <script src="sounds/tuba-fluid.js"></script>
-  <script src="sounds/trumpet-phil.js"></script>
-  <script src="sounds/trombone-phil.js"></script>
+  <!-- Instrument samples (sounds/*.js) load on demand: see loadSet in js/core.js. -->
   <script src="fingerings.js"></script>
   <script src="js/instruments.js"></script>
   <script src="js/core.js"></script>

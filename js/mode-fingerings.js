@@ -34,18 +34,22 @@
     if (ok) s.correct++;
     s.ema = s.ema * (1 - ALPHA) + (ok ? 1 : 0) * ALPHA;
     s.ms = s.seen === 1 ? ms : s.ms * 0.7 + ms * 0.3;
+    s.last = Date.now();
     store.notes[midi] = s;
     save();
   }
 
-  // Weak and slow notes come up more often.
+  // Weak and slow notes come up more often, and so do notes you haven't seen for a
+  // while (a few days away counts like a little weakness), so nothing goes stale.
+  const DAY = 86400000;
   function pickMidi(prev) {
     let pool = range();
     if (pool.length > 1) pool = pool.filter(m => m !== prev);
     const weights = pool.map(m => {
       const s = store.notes[m];
       if (!s || s.seen < 2) return 4;
-      return 1 + 6 * (1 - s.ema) + Math.min(s.ms / 4000, 1);
+      const away = s.last ? (Date.now() - s.last) / DAY : 7;
+      return 1 + 6 * (1 - s.ema) + Math.min(s.ms / 4000, 1) + Math.min(2.5, away / 3);
     });
     let r = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < pool.length; i++) {

@@ -120,6 +120,8 @@ svg .rh-ev .head.open { fill: var(--card); stroke: var(--ink); stroke-width: 1.6
 svg .rh-ev .stem { stroke: var(--ink); stroke-width: 1.3; }
 svg .rh-ev .flag { stroke: var(--ink); stroke-width: 2.2; fill: none; stroke-linecap: round; }
 svg .rh-ev .offset { fill: var(--muted); font-variant-numeric: tabular-nums; }
+svg .tie { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+svg .tuplet { fill: var(--ink); font-style: italic; font-family: Georgia, serif; }
 svg .rh-ev.active .head { fill: var(--brass); }
 svg .rh-ev.active .head.open { fill: var(--brass-soft); stroke: var(--brass); }
 svg .rh-ev.great .head { fill: var(--good); }
@@ -156,6 +158,7 @@ svg .rh-ev.off .offset, svg .rh-ev.miss .offset { fill: var(--bad); }
 }
 .valve .num { font-size: 22px; font-weight: 700; }
 .valve.fourth { margin-left: 18px; }
+.valve { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .valve.down { background: var(--valve-down); border-color: var(--valve-down); color: #1f1d1a; transform: translateY(3px); }
 .valve.answer { box-shadow: 0 0 0 4px var(--good); }
 
@@ -190,6 +193,7 @@ svg .hit:hover { fill: var(--brass-soft); fill-opacity: .5; }
 
 /* Today */
 .today-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.td-mins { margin-top: 8px; }
 .ring {
   --p: 0; width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -742,6 +746,28 @@ svg .annot.flat { fill: #6fa8ef; }
 .cal-box p { margin: 0 0 6px; }
 .cal-box .beat-dots { margin: 6px 0 2px; gap: 10px; }
 .cal-box .dot { width: 14px; height: 14px; }
+.lt-graph, .tg-graph { display: block; width: 100%; height: auto; margin: 10px 0 2px; background: var(--valve); border-radius: 10px; }
+.lt-graph .loud { fill: none; stroke: var(--good); stroke-width: 2; }
+.lt-graph .target { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; opacity: .55; }
+.lt-graph .pitch { fill: none; stroke: var(--brass); stroke-width: 1.2; }
+.lt-graph .mid, .tg-graph .mid { stroke: var(--line); stroke-width: 1; }
+.lt-key { font-size: 12px; color: var(--muted); }
+.lt-key i { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: middle; margin: 0 4px 0 10px; }
+.lt-key i:first-child { margin-left: 0; }
+.lt-key .k-loud { border-color: var(--good); }
+.lt-key .k-target { border-top: 1px dashed var(--ink); }
+.lt-key .k-pitch { border-color: var(--brass); }
+.tg-graph .beat { stroke: var(--ink); stroke-width: 1.2; opacity: .5; }
+.tg-graph .sub { stroke: var(--muted); stroke-width: 1; opacity: .5; }
+.tg-graph .hit { fill: var(--good); }
+.tg-graph .hit.close { fill: var(--warn); }
+.tg-graph .hit.off { fill: var(--bad); }
+.tg-graph .missed { fill: none; stroke: var(--bad); stroke-width: 1.2; }
+.mic-meter-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; }
+.mic-meter { position: relative; flex: 1; height: 10px; border-radius: 5px; background: var(--valve); overflow: hidden; }
+.mic-meter span { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--good); transition: width 60ms linear; }
+.mic-meter span.quiet { background: var(--muted); }
+.mic-meter i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .6; }
 
 /* Answer-with toggle: Keys | Mic */
 .input-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }

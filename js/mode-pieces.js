@@ -676,6 +676,8 @@
       scheduleAccompaniment(r, sel, tStart, spt);
       if (mic && !accWarned) { accWarned = true; TP.toast('Piano + mic: use headphones, or the mic will hear the piano.', 6000); }
     }
+    // The guide's notes come out of the speakers too: the mic would grade them as yours.
+    if (mic && S.pieceGuide && kind === 'play' && !guideWarned) { guideWarned = true; TP.toast('Guide + mic: use headphones, or the mic will hear the guide and count its notes as yours.', 7000); }
     sel.notes.forEach((n, k) => {
       const t = tStart + (n.start - sel.startT) * spt;
       // A repeat of the note before has to be played again, not just held over.
@@ -798,7 +800,7 @@
 
   // Piano accompaniment ("start,dur,midi;..." in ticks, concert pitch), from where the passage starts.
   const accCache = {};
-  let accWarned = false;
+  let accWarned = false, guideWarned = false;
   function scheduleAccompaniment(r, sel, tStart, spt) {
     const notes = accCache[item.id] || (accCache[item.id] = item.acc.split(';').map(x => x.split(',').map(Number)));
     for (const [st, d, m] of notes) {

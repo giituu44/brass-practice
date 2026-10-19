@@ -12,6 +12,43 @@
     melodic:   { name: 'Melodic minor',  up: [2, 1, 2, 2, 2, 2, 1], down: [2, 1, 2, 2, 1, 2, 2], minor: true },
     chromatic: { name: 'Chromatic',      up: Array(12).fill(1) },
   };
+  // Ways through the scale. Each turns the scale's notes going up (and coming down,
+  // which differ for melodic minor) into the order they're played.
+  const PATTERNS = {
+    straight: { name: 'Straight' },
+    thirds: { name: 'In thirds' },          // 1 3, 2 4, 3 5 … and back down
+    fours: { name: 'Groups of four' },     // 1234, 2345 … (Clarke-style)
+    arpeggio: { name: 'Arpeggio' },        // 1 3 5 8 … the tonic chord
+  };
+  function patterned(up, down) {
+    const top = up.length - 1;   // down[] runs from the top note down to the tonic
+    switch (S.scalePattern) {
+      case 'thirds': {
+        const out = [];
+        for (let i = 0; i + 2 <= top; i++) out.push(up[i], up[i + 2]);
+        out.push(up[top]);
+        for (let i = 0; i + 2 <= top; i++) out.push(down[i], down[i + 2]);
+        out.push(down[top]);
+        return out;
+      }
+      case 'fours': {
+        const out = [];
+        for (let i = 0; i + 3 <= top; i++) out.push(up[i], up[i + 1], up[i + 2], up[i + 3]);
+        out.push(up[top]);
+        for (let i = 0; i + 3 <= top; i++) out.push(down[i], down[i + 1], down[i + 2], down[i + 3]);
+        out.push(down[top]);
+        return out;
+      }
+      case 'arpeggio': {
+        // Scale degrees 1, 3, 5 of every octave, then the top tonic, and back.
+        const deg = up.map((n, i) => i).filter(i => [0, 2, 4].includes(i % 7));
+        const ups = deg.map(i => up[i]);
+        return ups.concat(ups.slice(0, -1).reverse());
+      }
+      default:
+        return up.concat(down.slice(1));
+    }
+  }
   // Sharp names too, for minor keys like G♯ minor and D♯ minor.
   const TONICS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
   // Keys that would need double sharps/flats get their usual enharmonic name.
@@ -61,12 +98,14 @@
     const chrom = S.scaleType === 'chromatic';
     const up = chrom ? chromaticRun(tonic, letter, 'sharps') : diatonicRun(tonic, letter, t.up);
     const down = chrom ? chromaticRun(tonic, letter, 'flats') : diatonicRun(tonic, letter, t.down || t.up);
-    return up.concat(down.reverse().slice(1));
+    if (chrom || !PATTERNS[S.scalePattern] || S.scalePattern === 'straight') return up.concat(down.reverse().slice(1));
+    return patterned(up, down.reverse());
   }
   // Chromatic scales are written without a key signature.
   const fifths = () => (S.scaleType === 'chromatic' ? 0 : TP.keyFifths(S.scaleKey, TYPES[S.scaleType].minor) || 0);
-  const scaleId = () => `${S.scaleKey} ${S.scaleType} ${S.scaleOctaves}`;
-  const scaleName = () => `${TP.tonicName(S.scaleKey)} ${TYPES[S.scaleType].name.toLowerCase()}`;
+  const pattern = () => (S.scaleType !== 'chromatic' && PATTERNS[S.scalePattern] ? S.scalePattern : 'straight');
+  const scaleId = () => `${S.scaleKey} ${S.scaleType} ${S.scaleOctaves}` + (pattern() === 'straight' ? '' : ' ' + pattern());
+  const scaleName = () => `${TP.tonicName(S.scaleKey)} ${TYPES[S.scaleType].name.toLowerCase()}` + (pattern() === 'straight' ? '' : `, ${PATTERNS[pattern()].name.toLowerCase()}`);
 
   // ---------- state & drawing ----------
   let run = [], idx = 0, states = [], mistakes = 0, startedAt = 0, finished = false;
@@ -337,6 +376,7 @@
   const keySel = $('scKey'), typeSel = $('scType'), octSel = $('scOct'), startSel = $('scStart');
   for (const t of TONICS) keySel.add(new Option(TP.tonicName(t), t));
   for (const [id, t] of Object.entries(TYPES)) typeSel.add(new Option(t.name, id));
+  for (const [id, p] of Object.entries(PATTERNS)) $('scPattern').add(new Option(p.name, id));
 
   // Respell keys that would need double sharps/flats (G♯ major -> A♭ major).
   function normaliseKey() {
@@ -373,6 +413,8 @@
     normaliseKey();
     keySel.value = S.scaleKey;
     typeSel.value = S.scaleType;
+    $('scPattern').value = PATTERNS[S.scalePattern] ? S.scalePattern : 'straight';
+    $('scPattern').disabled = S.scaleType === 'chromatic';
     octSel.value = S.scaleOctaves;
     $('scMode').value = S.scaleMode;
     $('scShowF').checked = S.scaleShowFingerings;
@@ -386,6 +428,8 @@
     const keyOrOctChanged = e.target === keySel || e.target === octSel || e.target === typeSel;
     S.scaleKey = keySel.value;
     S.scaleType = typeSel.value;
+    S.scalePattern = $('scPattern').value;
+    $('scPattern').disabled = S.scaleType === 'chromatic';
     S.scaleOctaves = Number(octSel.value);
     S.scaleMode = $('scMode').value;
     S.scaleShowFingerings = $('scShowF').checked;
@@ -402,7 +446,7 @@
     if (e.target === $('scShowF')) draw();
     else if (e.target !== $('scPlayAlong') && e.target !== $('scLoop')) reset();
   }
-  for (const id of ['scKey', 'scType', 'scOct', 'scStart', 'scMode', 'scShowF', 'scPlayAlong', 'scLoop']) {
+  for (const id of ['scKey', 'scType', 'scPattern', 'scOct', 'scStart', 'scMode', 'scShowF', 'scPlayAlong', 'scLoop']) {
     $(id).addEventListener('change', onChange);
   }
   $('scSlower').addEventListener('click', () => setTempo(S.scaleTempo - 4));

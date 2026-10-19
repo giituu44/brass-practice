@@ -5,6 +5,10 @@ TP.mic = (() => {
   'use strict';
   const FFT = 4096, DECIM = 4, EVERY_MS = 40;
   const MIN_HZ = 27, MAX_HZ = 500, MIN_RMS = 0.003, MIN_CLARITY = 0.8;
+  // Quietest signal treated as playing; Settings → Mic sensitivity scales it
+  // (low = needs more sound, for noisy rooms; high = for quiet mics).
+  const SENS = { low: 3, normal: 1, high: 0.35 };
+  const gate = () => MIN_RMS * (SENS[TP.S.micSens] || 1);
 
   // Returns { freq, clarity, rms } for a block of samples (freq 0 = no pitch).
   function detect(buf, sr) {
@@ -21,7 +25,7 @@ TP.mic = (() => {
     let rms = 0;
     for (let i = 0; i < n; i++) { x[i] -= mean; rms += x[i] * x[i]; }
     rms = Math.sqrt(rms / n);
-    if (rms < MIN_RMS) return { freq: 0, clarity: 0, rms };
+    if (rms < gate()) return { freq: 0, clarity: 0, rms };
 
     const fs = sr / DECIM;
     const maxLag = Math.min(Math.floor(fs / MIN_HZ), Math.floor(n / 2));
@@ -76,7 +80,7 @@ TP.mic = (() => {
   // `t` is when the middle of the block was played; `since` when this note started.
   function makeTracker(sr) {
     const env = [];           // { t, v } loudness, last ~0.3 s
-    let streak = { midi: null, since: 0 }, lastOnset = -Infinity, freq = 0;
+    let streak = { midi: null, since: 0 }, lastOnset = -Infinity, freq = 0, quietFrom = null;
 
     // Loudness along the new samples (the last `fresh` of buf, whose final sample
     // played at tEnd), each over a whole number of pitch periods so it doesn't ripple.
@@ -91,14 +95,25 @@ TP.mic = (() => {
         const pt = { t: tEnd - (buf.length - end + win / 2) / sr, v: Math.sqrt(s / win) };
         if (env.length && pt.t <= env[env.length - 1].t) continue;
         env.push(pt);
+        // From silence: the note starts where the sound climbs well clear of the quiet.
+        const g = gate();
+        if (pt.v < g * 1.5) { if (quietFrom === null) quietFrom = pt.t; continue; }
+        if (pt.v >= g * 3 && quietFrom !== null) {
+          if (pt.t - quietFrom >= 0.03 && pt.t - lastOnset >= MIN_GAP) lastOnset = onset = pt.t;
+          quietFrom = null;
+          continue;
+        }
         // The lowest point in the last 40 ms, and the loudest in the 120 ms before it.
         let lo = -1;
         for (let j = env.length - 2; j >= 0 && pt.t - env[j].t <= 0.04; j--) if (lo < 0 || env[j].v < env[lo].v) lo = j;
         if (lo < 0) continue;
         let before = 0;
         for (let j = lo - 1; j >= 0 && env[lo].t - env[j].t <= 0.12; j--) before = Math.max(before, env[j].v);
-        if (pt.v >= RISE * env[lo].v && env[lo].v <= DIP * before && pt.v >= MIN_RMS && env[lo].t - lastOnset >= MIN_GAP) {
-          lastOnset = onset = env[lo].t;
+        if (pt.v >= RISE * env[lo].v && env[lo].v <= DIP * before && pt.v >= g) {
+          // The note starts where the sound comes back up: halfway from the dip to now.
+          let k = lo + 1;
+          while (k < env.length - 1 && env[k].v < (env[lo].v + pt.v) / 2) k++;
+          if (env[k].t - lastOnset >= MIN_GAP) lastOnset = onset = env[k].t;
         }
       }
       while (env.length && env[0].t < tEnd - 0.3) env.shift();
@@ -113,13 +128,18 @@ TP.mic = (() => {
       let reading = { t, midi: null, cents: 0, freq: 0, rms: r.rms };
       if (r.freq && r.clarity >= MIN_CLARITY && (!live || t > TP.outputUntil + 0.08)) {
         const m = toMidi(r.freq);
-        const concert = Math.round(m);
+        let concert = Math.round(m);
+        // Near the edge between two notes, stay on the one already sounding
+        // (a note played 50¢ sharp shouldn't flicker between two names).
+        const was = streak.midi === null ? null : streak.midi - TP.inst().transpose;
+        if (was !== null && concert !== was && Math.abs(m - was) < 0.65) concert = was;
         // Everything else works in written pitch (a B♭ trumpet's C sounds B♭).
         const midi = concert + TP.inst().transpose;
         reading = { t, midi, concert, cents: Math.round((m - concert) * 100), freq: r.freq, rms: r.rms };
       }
       freq = reading.freq;
-      if (reading.midi !== streak.midi) streak = { midi: reading.midi, since: t };
+      // A note that starts from silence starts at its attack (if one was just heard).
+      if (reading.midi !== streak.midi) streak = { midi: reading.midi, since: reading.midi !== null && streak.midi === null && t - lastOnset < 0.15 ? Math.min(t, lastOnset) : t };
       else if (onset !== null && reading.midi !== null && onset > streak.since + MIN_GAP) streak = { midi: reading.midi, since: onset };
       reading.since = streak.since;
       reading.held = Math.max(0, t - streak.since);   // how long this note has been sounding
@@ -153,13 +173,20 @@ TP.mic = (() => {
     const buf = new Float32Array(FFT);
     const half = FFT / ctx.sampleRate / 2;
     const step = makeTracker(ctx.sampleRate);
-    let last = 0;
+    let last = 0, lag = null;
     timer = setInterval(() => {
       analyser.getFloatTimeDomainData(buf);
       const now = ctx.currentTime, fresh = last ? Math.round((now - last) * ctx.sampleRate) : FFT;
       last = now;
-      // When the middle of this window was played, on the same clock as clicks.
-      const reading = step(buf, fresh, TP.heardTime() - half - 0.02, true);
+      // When the middle of this window was played, on the same clock as clicks. The
+      // audio clock moves with the samples themselves, so it's steadier than asking
+      // heardTime() each tick; the gap between the two only changes when the output does.
+      // (Just after audio starts, the output clock can report nonsense: skip those.)
+      const d = now - TP.heardTime();
+      if (d >= 0 && d < 0.5) lag = lag === null ? d : lag * 0.98 + d * 0.02;
+      else if (lag === null) lag = ctx.outputLatency || ctx.baseLatency || 0;
+      // Settings → Mic delay: how late the mic hears you, measured by calibrating.
+      const reading = step(buf, fresh, now - lag - half - 0.02 - (TP.S.micLatencyMs || 0) / 1000, true);
       current = reading;
       log.push(reading);
       if (log.length > 600) log.splice(0, 300);
@@ -210,6 +237,21 @@ TP.mic = (() => {
     }
     return null;
   }
+  // Where notes started, from a run of readings: each loudness onset that a pitch
+  // follows within 150 ms (so a click or knock the mic overhears isn't a note), and
+  // each slur straight from one pitch to another. `ok(midi)`: which pitches count.
+  function noteStarts(readings, ok = () => true) {
+    const out = [];
+    const add = t => { if (!out.some(s => Math.abs(s - t) < 0.05)) out.push(t); };
+    readings.forEach((x, i) => {
+      if (x.onset !== undefined) {
+        if (readings.some(y => y.t >= x.onset && y.t <= x.onset + 0.15 && y.midi !== null && ok(y.midi))) add(x.onset);
+      } else if (i && x.midi !== null && ok(x.midi) && x.since === x.t && readings[i - 1].midi !== null && readings[i - 1].midi !== x.midi) {
+        add(x.t);
+      }
+    });
+    return out.sort((a, b) => a - b);
+  }
   // How in tune this note was between t0 and t1: the median of its readings in cents, or null.
   function centsOn(midi, t0, t1) {
     const c = log.filter(r => r.t >= t0 && r.t <= t1 && r.midi === midi).map(r => r.cents).sort((a, b) => a - b);
@@ -219,7 +261,7 @@ TP.mic = (() => {
   const matches = (got, want) => got !== null && (got === want || (TP.S.micAnyOctave && (got - want) % 12 === 0));
 
   return {
-    detect, analyse, start, stop, attach, heard, matches, centsOn,
+    detect, analyse, start, stop, attach, heard, matches, centsOn, gate, noteStarts,
     get source() { return source; },
     on: fn => listeners.push(fn),
     get active() { return !!timer; },

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brass Practice Tests</title>
+<style>
+  :root { --bg: #fbfaf7; --fg: #1d1c1a; --sub: #6b6862; --good: #2e7d4f; --bad: #c0392b; --line: #e3e0d9; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #171716; --fg: #ecebe8; --sub: #9a968e; --good: #5fc488; --bad: #ff7a6b; --line: #34332f; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--sub); margin: 0 0 14px; }
+  #summary { font-size: 18px; font-weight: 600; margin: 10px 0 14px; }
+  #summary.ok { color: var(--good); } #summary.fail { color: var(--bad); }
+  h2 { font-size: 15px; margin: 18px 0 4px; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+  .t { padding: 2px 0; }
+  .t.fail { color: var(--bad); }
+  .t small { color: var(--sub); }
+  #valvePanel { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Brass Practice tests</h1>
+  <p class="sub">Checks the parts with no screen or sound: note spelling, keys, fingering charts, the built-in music, and pitch detection on made-up signals. Open this file in a browser; nothing here changes your saved progress.</p>
+  <div id="summary">Running…</div>
+  <div id="out"></div>
+</main>
+<!-- Just enough of the page for js/core.js. -->
+<div id="valvePanel"><div class="valves"></div></div>
+<script>
+  // Never write over the app's saved progress (it shares this folder's storage).
+  Storage.prototype.setItem = function () {};
+</script>
+<script src="fingerings.js"></script>
+<script src="js/instruments.js"></script>
+<script src="js/core.js"></script>
+<script src="js/pitch.js"></script>
+<script src="js/score.js"></script>
+<script src="js/library.js"></script>
+<script src="js/library-methods.js"></script>
+<script>
+(() => {
+  'use strict';
+  const out = document.getElementById('out');
+  let pass = 0, fail = 0, group = null;
+  function section(name) { group = document.createElement('div'); group.innerHTML = `<h2>${name}</h2>`; out.appendChild(group); }
+  function check(name, ok, detail = '') {
+    ok ? pass++ : fail++;
+    const d = document.createElement('div');
+    d.className = 't' + (ok ? '' : ' fail');
+    d.innerHTML = `${ok ? '✓' : '✗'} ${name}` + (detail ? ` <small>${detail}</small>` : '');
+    group.appendChild(d);
+  }
+  const eq = (name, got, want) => check(name, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got) === JSON.stringify(want) ? '' : `got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  const lab = n => TP.label(n);
+
+  // ---------- spelling and keys ----------
+  section('Note spelling and keys');
+  eq('C♯/D♭ as flats', lab(TP.spell(61, 'flats')), 'D♭4');
+  eq('C♯/D♭ as sharps', lab(TP.spell(61, 'sharps')), 'C♯4');
+  eq('MIDI 60 spelt on B is B♯3', lab(TP.spellAs(60, 'B')), 'B♯3');
+  eq('MIDI 52 spelt on F is F♭3', lab(TP.spellAs(52, 'F')), 'F♭3');
+  eq('F♯ major has 6 sharps', TP.keyFifths('F#', false), 6);
+  eq('G♯ major is unwritable (null)', TP.keyFifths('G#', false), null);
+  eq('C minor has 3 flats', TP.keyFifths('C', true), -3);
+  eq('G♯ minor has 5 sharps', TP.keyFifths('G#', true), 5);
+  eq('B♭ minor has 5 flats', TP.keyFifths('Bb', true), -5);
+  eq('F major: B♭ is in the key', TP.keySigAcc(-1, 'B'), -1);
+  {
+    // F major, one bar: B♭ (no sign), B♮ (natural), B♮ again (no sign), then a new bar: B♮ (sign again).
+    const n = [TP.spellAs(46, 'B'), TP.spellAs(47, 'B'), TP.spellAs(47, 'B'), TP.spellAs(47, 'B')];
+    eq('Accidentals last to the end of the bar', TP.shownAccidentals(n, -1, i => (i < 3 ? 0 : 1)), [null, 0, null, 0]);
+  }
+  {
+    const m = TP.majorLetters('F#');
+    eq('F♯ major uses E♯, not F', m[5], 'E');
+  }
+
+  // ---------- fingering charts ----------
+  section('Fingering charts');
+  const above = n => Math.round(12 * Math.log2(n));
+  for (const inst of INSTRUMENTS.list) {
+    const chart = inst.chart(), bad = [];
+    for (const [m, fs] of Object.entries(chart)) {
+      for (const f of fs) {
+        // Every fingering must make its note on some partial of the open horn (1 = pedal).
+        const lower = inst.kind === 'slide' ? Number(f) - 1 : INSTRUMENTS.LOWER[f];
+        if (lower === undefined) { bad.push(`${m}:${f}?`); continue; }
+        const ok = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16].some(n => inst.fund + above(n) - lower === Number(m));
+        if (!ok) bad.push(`${TP.flatLabel(Number(m))} on ${f || 'open'}`);
+      }
+    }
+    check(`${inst.name}: every fingering makes its note`, !bad.length, bad.slice(0, 6).join(', '));
+    const notes = Object.keys(chart).map(Number);
+    check(`${inst.name}: chart covers the default range`, inst.range[0] >= Math.min(...notes) && inst.range[1] <= Math.max(...notes),
+      `${TP.flatLabel(Math.min(...notes))}–${TP.flatLabel(Math.max(...notes))}`);
+  }
+  eq('BB♭ tuba: F1 is 4 or 13', FINGERINGS[29], ['4', '13']);
+  eq('BB♭ tuba: B♭0 pedal is open', FINGERINGS[22], ['']);
+  eq('BB♭ tuba: F4 is open', FINGERINGS[65], ['']);
+  check('Any valid fingering is accepted', TP.checkFingering(29, '13').ok);
+
+  // ---------- the built-in music ----------
+  section('Built-in music');
+  const SC = TP.score;
+  let parsed = 0, broken = [], badBars = [];
+  for (const item of LIBRARY) {
+    let p;
+    try { p = SC.parseABC(item.abc); } catch (e) { broken.push(`${item.id} (${e.message})`); continue; }
+    if (!p || !p.measures || !p.measures.length) { broken.push(item.id); continue; }
+    parsed++;
+    // Every bar but the first (a pickup) and the last adds up to the time signature,
+    // except a bar split in two (at a repeat sign, or a section's pickup that another
+    // short bar completes) and a cadenza (a free-time run, at least twice a bar long).
+    const full = p.beats * 96 / p.beatType;
+    const sums = p.measures.map(m => m.reduce((a, e) => a + e.dur, 0));
+    const short = sums.filter(s => s < full);
+    sums.forEach((sum, i) => {
+      if (i === 0 || i === sums.length - 1 || sum === full) return;
+      if (sum + sums[i - 1] === full || sum + sums[i + 1] === full) return;
+      if (sum < full && short.some(s => s + sum === full)) return;
+      if (sum >= 2 * full) return;
+      badBars.push(`${item.id} bar ${i + 1}: ${sum}/${full}`);
+    });
+  }
+  check(`All ${LIBRARY.length} built-in pieces parse`, !broken.length, broken.slice(0, 5).join(', '));
+  check('Every inner bar adds up to its time signature', !badBars.length, `${badBars.length} short or long bars` + (badBars.length ? ': ' + badBars.slice(0, 4).join(', ') : ''));
+  eq('Kopprasch has 60 studies', LIBRARY.filter(p => p.book === 'Kopprasch Op. 6').length, 60);
+  eq('Bordogni has 53 vocalises', LIBRARY.filter(p => p.book === 'Bordogni vocalises').length, 53);
+  {
+    const p = SC.parseABC('X:1\nM:4/4\nL:1/4\nK:Bb\nB,, C, D, E, | F,4 |]');
+    const tl = SC.timeline(p);
+    eq('ABC: key of B♭ makes E into E♭', tl.notes.map(n => n.midi), [46, 48, 50, 51, 53]);
+    eq('ABC: a whole note is 96 ticks', tl.notes[4].dur, 96);
+  }
+  {
+    const p = SC.parseABC('X:1\nM:4/4\nL:1/8\nK:C\n(3CDE F2 G4- | G4 z4 |]');
+    const tl = SC.timeline(p);
+    eq('ABC: a triplet of eighths fills a quarter (3 × 8 ticks)', tl.notes.slice(0, 3).map(n => n.dur), [8, 8, 8]);
+    eq('ABC: a tie across the bar is one note', tl.notes[tl.notes.length - 1].dur, 96);
+  }
+
+  // ---------- pitch detection on made-up signals ----------
+  section('Pitch detection');
+  const sr = 48000;
+  // A brass-ish tone: a few harmonics, with an envelope function env(t) and frequency f(t).
+  function tone(seconds, f, env = () => 1) {
+    const x = new Float32Array(Math.round(seconds * sr));
+    let ph = 0;
+    for (let i = 0; i < x.length; i++) {
+      const t = i / sr;
+      ph += 2 * Math.PI * f(t) / sr;
+      x[i] = 0.25 * env(t) * (Math.sin(ph) + 0.6 * Math.sin(2 * ph) + 0.4 * Math.sin(3 * ph) + 0.2 * Math.sin(4 * ph)) + (Math.random() - 0.5) * 0.002;
+    }
+    return x;
+  }
+  const hzOf = m => 440 * Math.pow(2, (m - 69) / 12);
+  for (const m of [22, 29, 41, 46, 53, 65]) {
+    const r = TP.mic.detect(tone(0.2, () => hzOf(m)).subarray(0, 4096), sr);
+    const cents = Math.round(1200 * Math.log2(r.freq / hzOf(m)));
+    check(`${TP.flatLabel(m)} (${hzOf(m).toFixed(1)} Hz) is read within 5¢`, Math.abs(cents) <= 5, `${cents > 0 ? '+' : ''}${cents}¢`);
+  }
+  const notesIn = rs => {
+    const runs = {};
+    for (const r of rs) if (r.midi !== null) runs[r.since] = (runs[r.since] || 0) + 1;
+    return Object.values(runs).filter(n => n >= 3).length;
+  };
+  {
+    // Three B♭2s tongued legato: the sound dips to 30% for ~50 ms between them, never stopping.
+    const env = t => { const p = (t - 0.2) % 0.5; return t < 0.2 || t > 1.7 ? 0 : p > 0.45 ? 0.3 + 0.7 * Math.abs(p - 0.475) / 0.025 : Math.min(1, p / 0.02 + 0.3); };
+    const rs = TP.mic.analyse(tone(2, () => hzOf(46), env), sr);
+    eq('Three legato-tongued notes on one pitch are three notes', notesIn(rs), 3);
+  }
+  {
+    // One long note with a gentle 5 Hz vibrato in loudness: still one note.
+    const rs = TP.mic.analyse(tone(2, () => hzOf(41), t => (t < 0.2 ? 0 : 0.85 + 0.15 * Math.sin(2 * Math.PI * 5 * t))), sr);
+    eq('A long note with a wavering volume stays one note', notesIn(rs), 1);
+  }
+  {
+    // B♭2, then 45¢ sharp: still B♭2 (it doesn't flicker over to B2)...
+    const rs = TP.mic.analyse(tone(1.2, t => hzOf(46) * (t < 0.6 ? 1 : Math.pow(2, 0.45 / 12))), sr);
+    const late = rs.filter(r => r.t > 0.75 && r.midi !== null);
+    check('A note pushed 45¢ sharp keeps its name', late.length > 5 && late.every(r => r.midi === 46), [...new Set(late.map(r => r.midi))].join(', '));
+    // ...but moving a real semitone does change it.
+    const rs2 = TP.mic.analyse(tone(1.2, t => hzOf(46) * (t < 0.6 ? 1 : Math.pow(2, 1 / 12))), sr);
+    check('A real semitone up is read as the next note', rs2.filter(r => r.t > 0.75 && r.midi !== null).every(r => r.midi === 47));
+  }
+
+  const s = document.getElementById('summary');
+  s.textContent = fail ? `${fail} failed, ${pass} passed` : `All ${pass} passed`;
+  s.className = fail ? 'fail' : 'ok';
+  document.title = fail ? `✗ ${fail} failed` : `✓ ${pass} passed`;
+})();
+</script>
+</body>
+</html>

@@ -44,14 +44,20 @@
     return TP.ALL_MIDI.filter(m => m >= S.low && m <= S.high);
   }
   const nameOf = m => TP.label(TP.spell(m, S.spelling === 'sharps' ? 'sharps' : 'flats'));
+  const mainF = m => (FINGERINGS[m] || [''])[0];
+  // What to measure: each note on its main fingering, or on every fingering it has.
+  function toMeasure(notes) {
+    const out = [];
+    for (const m of notes) for (const f of S.intAlts ? FINGERINGS[m] || [''] : [mainF(m)]) out.push({ m, f });
+    return out;
+  }
 
   async function start(fromMidi) {
     if (!TP.mic.active) {
       try { await TP.mic.start(); } catch (e) { TP.toast(TP.micError(e), 7000); return; }
     }
-    const notes = notesInRange();
-    const k = fromMidi !== undefined ? Math.max(0, notes.indexOf(fromMidi)) : 0;
-    run = { notes, k, readings: [], single: fromMidi !== undefined };
+    const notes = toMeasure(fromMidi !== undefined ? [fromMidi] : notesInRange());
+    run = { notes, k: 0, readings: [], single: fromMidi !== undefined };
     $('intStart').textContent = 'Stop';
     $('intLive').hidden = false;
     show();
@@ -64,10 +70,9 @@
     render();
   }
   function show() {
-    const m = run.notes[run.k];
-    const f = (FINGERINGS[m] || [''])[0];
+    const { m, f } = run.notes[run.k];
     $('intNote').textContent = nameOf(m);
-    $('intFing').textContent = TP.fmtFingering(f);
+    $('intFing').textContent = TP.fmtFingering(f) + (f !== mainF(m) ? ' (alternate)' : '');
     $('intMsg').textContent = `Note ${run.k + 1} of ${run.notes.length} — play it and hold it steady.`;
     $('intNeedle').style.left = '50%';
     $('intNeedle').classList.remove('on');
@@ -77,13 +82,13 @@
   }
   function next() {
     if (!run) return;
-    if (run.single || run.k + 1 >= run.notes.length) { stop(); return; }
+    if (run.k + 1 >= run.notes.length) { stop(); return; }
     run.k++;
     show();
   }
   TP.mic.on(r => {
     if (!run || $('panel-tuner').hidden || run.pause) return;
-    const want = run.notes[run.k];
+    const { m: want, f } = run.notes[run.k];
     if (r.midi !== want) return;
     // Skip the attack: count readings once the note has held for a moment.
     $('intNeedle').classList.add('on');
@@ -93,13 +98,32 @@
     if (run.readings.length < NEED) return;
     const sorted = run.readings.slice().sort((a, b) => a - b);
     const c = sorted[sorted.length >> 1];
-    data()[want] = { c, f: (FINGERINGS[want] || [''])[0], at: Date.now() };
+    keep(want, f, c);
     TP.save();
-    $('intMsg').textContent = `${nameOf(want)}: ${c > 0 ? '+' : ''}${c}¢ — ${advice(want, data()[want])}`;
+    $('intMsg').textContent = `${nameOf(want)} on ${TP.fmtFingering(f)}: ${c > 0 ? '+' : ''}${c}¢ — ${advice(want, { c, f })}`;
     run.pause = true;
     render();
     setTimeout(() => { if (run) { run.pause = false; next(); } }, 1100);
   });
+
+  // Each note keeps its latest main-fingering reading ({ c, f, at }), a history of
+  // them, and the latest reading on each alternate fingering.
+  function keep(m, f, c) {
+    const d = data(), at = Date.now();
+    const rec = d[m] = d[m] || {};
+    if (f === mainF(m) || rec.c === undefined) {
+      if (rec.c !== undefined && rec.f === f) {
+        rec.hist = rec.hist || [{ c: rec.c, at: rec.at }];
+        rec.hist.push({ c, at });
+        if (rec.hist.length > 12) rec.hist.splice(0, rec.hist.length - 12);
+      }
+      Object.assign(rec, { c, f, at });
+    }
+    rec.alts = rec.alts || {};
+    rec.alts[f] = { c, at };
+    return rec;
+  }
+  const day = at => new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   // ---------- the map: one bar per note, up = sharp, down = flat ----------
   const NS = 'http://www.w3.org/2000/svg';
@@ -130,13 +154,15 @@
     }
     notes.forEach((m, i) => {
       const x = L + i * step + step / 2, rec = d[m];
-      const g = el('g', { class: 'inton-col' + (run && run.notes[run.k] === m ? ' now' : '') });
+      const g = el('g', { class: 'inton-col' + (run && run.notes[run.k].m === m ? ' now' : '') });
       g.appendChild(el('rect', { x: x - step / 2, y: 0, width: step, height: H, class: 'inton-hit' }));
       if (rec) {
         const c = Math.max(-40, Math.min(40, rec.c)), h = Math.max(2, Math.abs(c) * scale);
         const cls = Math.abs(rec.c) <= IN_TUNE ? 'ok' : rec.c > 0 ? 'sharp' : 'flat';
         g.appendChild(el('rect', { x: x - Math.min(7, step * 0.32), y: c > 0 ? mid - h : mid, width: Math.min(14, step * 0.64), height: h, rx: 2, class: 'inton-bar ' + cls }));
-        g.appendChild(el('title', {}, `${nameOf(m)} (${TP.fmtFingering(rec.f)}): ${rec.c > 0 ? '+' : ''}${rec.c}¢ — ${advice(m, rec)}. Click to measure again.`));
+        const was = rec.hist && rec.hist.length > 1 ? rec.hist[rec.hist.length - 2] : null;
+        g.appendChild(el('title', {}, `${nameOf(m)} (${TP.fmtFingering(rec.f)}): ${rec.c > 0 ? '+' : ''}${rec.c}¢ — ${advice(m, rec)}`
+          + (was ? ` (was ${was.c > 0 ? '+' : ''}${was.c}¢ on ${day(was.at)})` : '') + '. Click to measure again.'));
       } else {
         g.appendChild(el('circle', { cx: x, cy: mid, r: 2, class: 'inton-none' }));
         g.appendChild(el('title', {}, `${nameOf(m)}: not measured yet. Click to measure.`));
@@ -156,20 +182,51 @@
     renderAdvice(notes, d);
   }
   function renderAdvice(notes, d) {
-    const worst = notes.filter(m => d[m] && Math.abs(d[m].c) > IN_TUNE + 5)
+    const measured = notes.filter(m => d[m] && d[m].c !== undefined);
+    const worst = measured.filter(m => Math.abs(d[m].c) > IN_TUNE + 5)
       .sort((a, b) => Math.abs(d[b].c) - Math.abs(d[a].c)).slice(0, 6);
     const box = $('intAdvice');
-    if (!worst.length) { box.innerHTML = notes.some(m => d[m]) ? '<p class="sub tight">Nothing more than 10¢ off — nice.</p>' : ''; return; }
+    box.innerHTML = progressHtml(measured, d) + betterHtml(measured, d);
+    if (!worst.length) { box.insertAdjacentHTML('afterbegin', measured.length ? '<p class="sub tight">Nothing more than 10¢ off — nice.</p>' : ''); return; }
     box.innerHTML = '<h3>Your tendencies</h3>' + worst.map(m => {
       const r = d[m];
       return `<div class="inton-row ${r.c > 0 ? 'sharp' : 'flat'}"><b>${nameOf(m)}</b><span class="fing">${TP.fmtFingering(r.f)}</span>`
         + `<span class="cents">${r.c > 0 ? '+' : ''}${r.c}¢</span><span>${advice(m, r)}</span></div>`;
-    }).join('') + '<p class="sub tight">Slide distances are estimates from the tube length; check with the tuner. Measured with the main fingering.</p>';
+    }).join('') + '<p class="sub tight">Slide distances are estimates from the tube length; check with the tuner. Measured with the main fingering.</p>'
+      + betterHtml(measured, d) + progressHtml(measured, d);
+  }
+  // Alternate fingerings that sit clearly better in tune than the main one, on your horn.
+  function betterHtml(notes, d) {
+    const rows = [];
+    for (const m of notes) {
+      const main = d[m], alts = Object.entries(main.alts || {}).filter(([f]) => f !== main.f);
+      if (!alts.length) continue;
+      const [f, a] = alts.reduce((b, x) => (Math.abs(x[1].c) < Math.abs(b[1].c) ? x : b));
+      if (Math.abs(main.c) - Math.abs(a.c) >= 8) {
+        rows.push(`<div class="inton-row ${a.c > 0 ? 'sharp' : 'flat'}"><b>${nameOf(m)}</b><span class="fing">${TP.fmtFingering(f)}</span>`
+          + `<span class="cents">${a.c > 0 ? '+' : ''}${a.c}¢</span><span>sits better than ${TP.fmtFingering(main.f)} (${main.c > 0 ? '+' : ''}${main.c}¢) on your horn</span></div>`);
+      }
+    }
+    return rows.length ? '<h3>Better fingerings for you</h3>' + rows.join('') : '';
+  }
+  // Notes measured more than once: closer to in tune than the first time?
+  function progressHtml(notes, d) {
+    const twice = notes.filter(m => d[m].hist && d[m].hist.length > 1);
+    if (twice.length < 3) return '';
+    const avg = xs => Math.round(xs.reduce((a, b) => a + Math.abs(b), 0) / xs.length);
+    const first = avg(twice.map(m => d[m].hist[0].c)), now = avg(twice.map(m => d[m].c));
+    const since = day(Math.min(...twice.map(m => d[m].hist[0].at)));
+    const better = twice.filter(m => Math.abs(d[m].c) < Math.abs(d[m].hist[d[m].hist.length - 2].c) - 2).length;
+    const worse = twice.filter(m => Math.abs(d[m].c) > Math.abs(d[m].hist[d[m].hist.length - 2].c) + 2).length;
+    return `<h3>Over time</h3><p class="sub tight">On the ${twice.length} notes measured more than once: ${now}¢ off on average now, ${first}¢ the first time (${since}). `
+      + `Since the time before: ${better} closer to in tune, ${worse} further off.</p>`;
   }
 
   $('intStart').addEventListener('click', e => { e.currentTarget.blur(); if (run) stop(); else start(); });
   $('intSkip').addEventListener('click', () => next());
-  $('intHear').addEventListener('click', () => { if (run) TP.playMidi(run.notes[run.k], 1.4); });
+  $('intHear').addEventListener('click', () => { if (run) TP.playMidi(run.notes[run.k].m, 1.4); });
+  $('intAlts').checked = !!S.intAlts;
+  $('intAlts').addEventListener('change', e => { S.intAlts = e.target.checked; TP.save(); e.target.blur(); });
   document.querySelector('.tab[data-tab="tuner"]').addEventListener('click', () => setTimeout(render, 0));
 
   // ---------- lip slur builder (opens the exercise in Pieces) ----------

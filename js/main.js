@@ -16,6 +16,7 @@
     valvePanel.hidden = !active.valves;
     if (active.valves) $(active.panel).querySelector('.valve-slot').appendChild(valvePanel);
     TP.held.clear();
+    TP.touched.clear();
     TP.resetValves();
     active.enter();
     TP.preload(active.preloadNotes());
@@ -56,7 +57,7 @@
     const v = TP.VALVE_KEYS[e.key.toLowerCase()];
     if (v) { TP.held.delete(v); TP.renderValves(); }
   });
-  window.addEventListener('blur', () => { TP.held.clear(); TP.renderValves(); });
+  window.addEventListener('blur', () => { TP.held.clear(); TP.touched.clear(); TP.renderValves(); });
 
   // Keep focus off buttons so Space doesn't also click whatever was last pressed.
   // (Delegated, so buttons added later count too; checkboxes and selects let go after a change.)
@@ -99,6 +100,8 @@
     $('setShowName').checked = S.showName;
     $('setTone').value = TP.tone();
     $('setAnyOctave').checked = S.micAnyOctave;
+    $('setMicSens').value = S.micSens || 'normal';
+    $('setMicLatency').value = S.micLatencyMs || 0;
     $('setYouSound').checked = S.youSound;
     $('setWrongSound').checked = S.wrongSound;
     $('setTiming').value = S.timing;
@@ -168,6 +171,84 @@
     }
   }, true);
   dlg.addEventListener('close', () => { $('calBox').hidden = true; });
+
+  // ---------- the mic: level meter, and its delay measured by playing on clicks ----------
+  // The mic only stays on after Settings if you're answering with it or in the Tuner.
+  const micStillNeeded = () => S.input === 'mic' || S.tab === 'tuner';
+  async function micOn() {
+    if (TP.mic.active) return true;
+    try { await TP.mic.start(); return true; } catch (e) { $('micMeterTxt').textContent = TP.micError(e); return false; }
+  }
+  const dB = rms => Math.max(0, Math.min(1, (20 * Math.log10(Math.max(rms, 1e-6)) + 66) / 60));
+  TP.mic.on(r => {
+    if (!dlg.open) return;
+    const playing = r.rms >= TP.mic.gate();
+    $('micMeter').style.width = dB(r.rms) * 100 + '%';
+    $('micMeter').classList.toggle('quiet', !playing);
+    $('micMeterGate').style.left = dB(TP.mic.gate()) * 100 + '%';
+    if (!micCal) {
+      $('micMeterTxt').textContent = r.midi !== null ? `Hearing ${TP.label(TP.spell(r.midi, 'flats'))} — good.`
+        : playing ? 'Hearing sound, but no clear note.' : 'Quiet. Play a note: the bar should pass the line.';
+    }
+  });
+  $('micTestBtn').addEventListener('click', async () => {
+    if (TP.mic.active && $('micTestBtn').dataset.mine) {
+      TP.mic.stop(); delete $('micTestBtn').dataset.mine;
+      $('micTestBtn').textContent = 'Test mic'; $('micMeter').style.width = '0'; $('micMeterTxt').textContent = '';
+      return;
+    }
+    if (!TP.mic.active && await micOn()) { $('micTestBtn').dataset.mine = '1'; $('micTestBtn').textContent = 'Stop test'; }
+  });
+
+  let micCal = null;
+  $('micCalBtn').addEventListener('click', async () => {
+    if (micCal || cal) return;
+    if (!await micOn()) return;
+    const ctx = TP.audio();
+    await ctx.resume();
+    const r = TP.makeRun(), BEAT = 0.75, LEAD = 4, NOTES = 8;
+    const t0 = ctx.currentTime + 0.6, clicks = [];
+    $('micCalBox').hidden = false;
+    $('micCalDots').innerHTML = '<span class="dot"></span>'.repeat(4);
+    const dots = [...$('micCalDots').children];
+    for (let i = 0; i < LEAD + NOTES; i++) {
+      const t = t0 + i * BEAT;
+      r.click(t, i % 4 === 0);
+      r.at(t, () => dots.forEach((d, j) => d.classList.toggle('on', j === i % 4)));
+      if (i >= LEAD) clicks.push(t);
+    }
+    $('micCalMsg').innerHTML = '<b>Headphones on</b> (so the mic doesn’t hear the clicks). Listen to 4 clicks, then play a short, tongued note exactly on each of the next 8 — any note.';
+    micCal = { readings: [] };
+    r.at(t0 + (LEAD + NOTES) * BEAT + 0.4, () => {
+      const rs = micCal.readings;
+      micCal = null;
+      dots.forEach(d => d.classList.remove('on'));
+      // Note starts that really were notes (a pitch on your instrument follows), against the nearest click.
+      const offs = [];
+      for (const s of TP.mic.noteStarts(rs, m => !!FINGERINGS[m])) {
+        const near = clicks.reduce((a, c) => (Math.abs(c - s) < Math.abs(a - s) ? c : a));
+        if (Math.abs(near - s) < 0.35) offs.push(s - near);
+      }
+      if (!micStillNeeded() && !$('micTestBtn').dataset.mine) TP.mic.stop();
+      if (offs.length < 5) {
+        $('micCalMsg').textContent = `Only ${offs.length} of 8 notes were heard near the clicks — try again (louder, shorter notes; check Mic sensitivity).`;
+        return;
+      }
+      offs.sort((a, b) => a - b);
+      const ms = Math.max(-100, Math.min(400, (S.micLatencyMs || 0) + Math.round(offs[offs.length >> 1] * 200) * 5));
+      S.micLatencyMs = ms;
+      $('setMicLatency').value = ms;
+      save();
+      $('micCalMsg').textContent = `Done — mic delay set to ${ms} ms (from ${offs.length} notes).`;
+    });
+  });
+  TP.mic.on(r => { if (micCal) micCal.readings.push(r); });
+  dlg.addEventListener('close', () => {
+    $('micCalBox').hidden = true;
+    if ($('micTestBtn').dataset.mine) { delete $('micTestBtn').dataset.mine; $('micTestBtn').textContent = 'Test mic'; if (!micStillNeeded()) TP.mic.stop(); }
+    $('micMeter').style.width = '0';
+    $('micMeterTxt').textContent = '';
+  });
   dlg.addEventListener('keydown', e => {
     if (rebinding === null) return;
     e.preventDefault();
@@ -209,6 +290,8 @@
       showName: $('setShowName').checked,
       tone: $('setTone').value,
       micAnyOctave: $('setAnyOctave').checked,
+      micSens: $('setMicSens').value,
+      micLatencyMs: Math.max(-100, Math.min(400, Number($('setMicLatency').value) || 0)),
       youSound: $('setYouSound').checked,
       wrongSound: $('setWrongSound').checked,
       timing: $('setTiming').value,
@@ -235,6 +318,8 @@
 
   // ---------- backup ----------
   $('backupBtn').addEventListener('click', () => {
+    store.lastBackup = Date.now();
+    save();
     const blob = new Blob([JSON.stringify({ app: 'brass-practice', version: 1, saved: new Date().toISOString(), data: store }, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -268,6 +353,18 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.hidden = true; }, ms);
   };
+
+  // ---------- a nudge to back up now and then ----------
+  // Progress lives only in this browser, so after a week of practice days without
+  // a backup, say so (at most once a day).
+  {
+    const since = Object.keys(store.days).filter(k => store.days[k].n && new Date(k + 'T23:59:59').getTime() > (store.lastBackup || 0)).length;
+    if (Object.keys(store.days).length >= 5 && since >= 7 && store.backupNag !== TP.dayKey()) {
+      store.backupNag = TP.dayKey();
+      save();
+      setTimeout(() => TP.toast(`${since} practice days since your last backup. ⚙ Settings → ⬇ Back up keeps a copy of your progress.`, 9000), 1500);
+    }
+  }
 
   // ---------- microphone input ----------
   function renderInput() {
